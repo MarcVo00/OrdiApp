@@ -40,3 +40,11 @@ model OrderLine {
   order      Order   @relation(fields: [order_id], references: [id])
   order_id   Int
 }
+
+model User {
+  id       Int     @id @default(autoincrement())
+  email    String  @unique
+  password String
+  role     String  // 'server', 'manager'
+  name     String?
+}
