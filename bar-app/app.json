@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "bar-app",
+    "slug": "bar-app",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    }
+  }
+}
