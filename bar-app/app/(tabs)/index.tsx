@@ -6,6 +6,12 @@ export default function Home() {
   const router = useRouter();
   const [tableId, setTableId] = useState('');
 
+  const handleClientAccess = () => {
+    if (tableId.trim()) {
+      router.push(`/client/${tableId}` as const);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Bienvenue au Bar</Text>
@@ -18,12 +24,7 @@ export default function Home() {
         style={styles.input}
         keyboardType="numeric"
       />
-      <Button
-        title="Accéder au menu"
-        onPress={() => {
-          if (tableId) router.push(`/client/${tableId}`);
-        }}
-      />
+      <Button title="Accéder au menu" onPress={handleClientAccess} />
 
       <View style={styles.separator} />
 

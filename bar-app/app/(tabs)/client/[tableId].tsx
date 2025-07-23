@@ -52,6 +52,10 @@ export default function MenuClient() {
           </Pressable>
         ))}
       </View>
+
+      <Pressable style={styles.checkout} onPress={() => router.push('/panier')}>
+        <Text style={styles.checkoutText}>🛒 Voir le panier ({cart.length})</Text>
+      </Pressable>
     </SafeAreaView>
   );
 }
