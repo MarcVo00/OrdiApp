@@ -22,8 +22,9 @@ jobs:
 
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ORDIAPP00 }}
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_ORDIAPP00 }}'
           projectId: ordiapp00
-          channelId: preview
-          expires: 7d
+          channelId: live
+          entryPoint: bar-app
+
