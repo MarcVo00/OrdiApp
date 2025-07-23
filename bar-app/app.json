@@ -2,6 +2,7 @@
   "expo": {
     "name": "bar-app",
     "slug": "bar-app",
+    "owner": "nedors",
     "platforms": [
       "ios",
       "android",
