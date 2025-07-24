@@ -3,7 +3,7 @@ import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDnuqvjp982dOH6sms2WAcX4OD3_yiB7dE",
-  authDomain: "ordiapp00.firebaseapp.com",
+  authDomain: "ordiapp00.web.firebaseapp.com",
   projectId: "ordiapp00",
   storageBucket: "ordiapp00.firebasestorage.app",
   messagingSenderId: "156793524836",
