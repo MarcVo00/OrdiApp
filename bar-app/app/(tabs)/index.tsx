@@ -31,6 +31,7 @@ export default function Home() {
       <Text style={styles.subtitle}>Personnel</Text>
       <Button title="Interface Serveur" onPress={() => router.push('/serveur')} />
       <Button title="Interface Cuisine" onPress={() => router.push('/cuisine')} />
+      <Button title="Interface Admin" onPress={() => router.push('/admin')} />
     </View>
   );
 }
