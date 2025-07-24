@@ -3,8 +3,15 @@ import { View, Text, FlatList, Pressable, StyleSheet, Alert } from 'react-native
 import { useCart } from './context/Cartcontext';
 import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useLocalSearchParams } from 'expo-router';
+import { db } from '../firebase'; // Ensure this imports the db from your firebase config
 
-const db = getFirestore();
+
+
+await addDoc(collection(db, 'commandes'), {
+  table: '5',
+  produits: [{ name: 'Mojito', price: 7 }],
+  statut: 'en_attente',
+});
 
 export default function Panier() {
   const router = useRouter();
@@ -28,6 +35,8 @@ export default function Panier() {
       Alert.alert('Erreur lors de l’envoi');
     }
   };
+
+  
 
   return (
     <View style={styles.container}>
