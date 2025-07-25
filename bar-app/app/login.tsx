@@ -6,18 +6,28 @@ import { useAuth } from './context/AuthContext';
 
 
 export default function Login() {
-  const { login, role } = useAuth();
+  const { user ,login, role } = useAuth();
   const router = useRouter();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mount, setMount] = useState(false);
+
   console.log('Login component mounted');
   console.log('Current role:', role);
   console.log('Router:', router);
   console.log('Email:', email);
   console.log('Password:', password);
 
-    const [mount, setMount] = useState(false);
+    useEffect(() => {
+      if (!user || !role) return;
+
+      if (role === 'admin') router.replace('/');
+      else if (role === 'serveur') router.replace('/serveur');
+      else if (role === 'cuisine') router.replace('/cuisine');
+    }, [user, role]);
+
+
     useEffect(() => {
         setMount(true);
     }, []);
@@ -27,15 +37,11 @@ export default function Login() {
       await login(email, password);
       console.log('Login successful, role:', role);
       Alert.alert('Connexion réussie !');
-      if (role === 'admin') router.replace('/');
-      else if (role === 'serveur') router.replace('/serveur');
-      else if (role === 'cuisine') router.replace('/cuisine');
-      else Alert.alert('Aucun rôle attribué.');
-    } catch (e) {
-      Alert.alert('Erreur', 'Email ou mot de passe invalide');
-    }
-  };
-
+  } catch (error) {
+      console.error('Login error:', error);
+      Alert.alert('Erreur de connexion', 'Veuillez vérifier vos identifiants.');
+  }
+};
 
   return (
     <View style={styles.container}>
