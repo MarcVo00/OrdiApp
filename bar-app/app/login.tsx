@@ -26,7 +26,6 @@ export default function Login() {
   const [mount, setMount] = useState(false);
     useEffect(() => {
         setMount(true);
-        return () => setMount(false);
     }, []);
     if (!mount) return null; // Ne pas afficher le composant avant que le mount soit vrai
 
