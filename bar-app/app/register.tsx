@@ -62,21 +62,10 @@ export default function Admin() {
     
         return () => {
         unsub();
-        setMounted(false);
         };
     }, []);
-    
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'utilisateurs'), (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as any),
-      }));
-      setUtilisateurs(data);
-    });
 
-    return () => unsub();
-  }, []);
+    if (!mounted) return null;
 
   return (
     <ProtectedRoute allowedRoles={['admin']}>

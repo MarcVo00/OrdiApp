@@ -51,29 +51,20 @@ export default function Admin() {
   };
 
   useEffect(() => {
+      const unsub = onSnapshot(collection(db, 'utilisateurs'), (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as Omit<Utilisateur, 'id'>),
+      }));
+      setUtilisateurs(data);
+    });
     setMounted(true);
-    const unsub = onSnapshot(collection(db, 'utilisateurs'), (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as Omit<Utilisateur, 'id'>),
-      }));
-      setUtilisateurs(data);
-    });
-
-    return () => unsub();
+    return () => {
+      unsub();
+    };
   }, []);
-
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'utilisateurs'), (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as Omit<Utilisateur, 'id'>),
-      }));
-      setUtilisateurs(data);
-    });
-
-    return () => unsub();
-  }, []);
+  // Assure que le composant est monté avant de charger les données
+  if (!mounted) return null;
 
   return (
     <ProtectedRoute allowedRoles={['admin']}>
