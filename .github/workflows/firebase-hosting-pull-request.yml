@@ -18,6 +18,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - run: npm ci
+      - run: npx expo export --platform web
 
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
