@@ -11,7 +11,17 @@ export default function Login() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  console.log('Login component mounted');
+  console.log('Current role:', role);
+  console.log('Router:', router);
+  console.log('Email:', email);
+  console.log('Password:', password);
 
+    const [mount, setMount] = useState(false);
+    useEffect(() => {
+        setMount(true);
+    }, []);
+    if (!mount) return null; // Ne pas afficher le composant avant que le mount soit vrai
   const handleLogin = async () => {
     try {
       await login(email, password);
@@ -23,11 +33,7 @@ export default function Login() {
       Alert.alert('Erreur', 'Email ou mot de passe invalide');
     }
   };
-  const [mount, setMount] = useState(false);
-    useEffect(() => {
-        setMount(true);
-    }, []);
-    if (!mount) return null; // Ne pas afficher le composant avant que le mount soit vrai
+
 
   return (
     <View style={styles.container}>
