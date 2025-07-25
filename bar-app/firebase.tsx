@@ -1,9 +1,10 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDnuqvjp982dOH6sms2WAcX4OD3_yiB7dE",
-  authDomain: "ordiapp00.web.firebaseapp.com",
+  authDomain: "ordiapp00.firebaseapp.com",
   projectId: "ordiapp00",
   storageBucket: "ordiapp00.firebasestorage.app",
   messagingSenderId: "156793524836",
@@ -11,4 +12,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+export { app, db, auth };

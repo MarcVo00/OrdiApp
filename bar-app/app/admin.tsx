@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TextInput, Button, FlatList, StyleSheet, Alert } from 'react-native';
 import {
-  getFirestore,
   collection,
   addDoc,
   onSnapshot,
@@ -12,34 +11,41 @@ import { db } from '../firebase'; // Assure-toi que ce fichier existe
 type Utilisateur = {
   id: string;
   nom: string;
+  prenom: string;
   email: string;
   role: 'serveur' | 'cuisine' | 'admin';
 };
 
 export default function Admin() {
   const [nom, setNom] = useState('');
+  const [prenom, setPrenom] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'serveur' | 'cuisine' | 'admin'>('serveur');
   const [utilisateurs, setUtilisateurs] = useState<Utilisateur[]>([]);
 
+
+
   const ajouterUtilisateur = async () => {
-    if (!nom || !email) return Alert.alert('Champs requis');
+    if (!nom || !prenom || !email) return Alert.alert('Champs requis');
 
     try {
       await addDoc(collection(db, 'utilisateurs'), {
         nom,
+        prenom,
         email,
         role,
         createdAt: Timestamp.now(),
       });
 
       setNom('');
+      setPrenom('');
       setEmail('');
       setRole('serveur');
     } catch (e) {
       Alert.alert('Erreur lors de l’ajout');
     }
   };
+
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'utilisateurs'), (snapshot) => {
@@ -61,6 +67,12 @@ export default function Admin() {
         placeholder="Nom"
         value={nom}
         onChangeText={setNom}
+        style={styles.input}
+      />
+      <TextInput
+        placeholder="Prénom"
+        value={prenom}
+        onChangeText={setPrenom}
         style={styles.input}
       />
       <TextInput
@@ -90,7 +102,7 @@ export default function Admin() {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={styles.user}>
-            <Text>{item.nom} ({item.role})</Text>
+            <Text>{item.nom} {item.prenom} ({item.role})</Text>
             <Text style={styles.email}>{item.email}</Text>
           </View>
         )}
