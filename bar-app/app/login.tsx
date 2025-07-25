@@ -25,6 +25,8 @@ export default function Login() {
   const handleLogin = async () => {
     try {
       await login(email, password);
+      console.log('Login successful, role:', role);
+      Alert.alert('Connexion réussie !');
       if (role === 'admin') router.replace('/');
       else if (role === 'serveur') router.replace('/serveur');
       else if (role === 'cuisine') router.replace('/cuisine');
