@@ -20,14 +20,13 @@ import ProtectedRoute from './protectedRoute';
 import { useRouter } from 'expo-router';
 import { globalStyles as styles } from './styles/globalStyles';
 
-
 export default function Admin() {
   const [nom, setNom] = useState('');
   const [prenom, setPrenom] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'serveur' | 'cuisine' | 'admin'>('serveur');
   const [utilisateurs, setUtilisateurs] = useState<any[]>([]);
-
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
   const ajouterUtilisateur = async () => {
@@ -51,6 +50,22 @@ export default function Admin() {
     }
   };
 
+    useEffect(() => {
+        setMounted(true);
+        const unsub = onSnapshot(collection(db, 'utilisateurs'), (snapshot) => {
+        const data = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...(doc.data() as any),
+        }));
+        setUtilisateurs(data);
+        });
+    
+        return () => {
+        unsub();
+        setMounted(false);
+        };
+    }, []);
+    
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'utilisateurs'), (snapshot) => {
       const data = snapshot.docs.map((doc) => ({

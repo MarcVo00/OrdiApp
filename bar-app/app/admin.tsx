@@ -20,6 +20,7 @@ type Utilisateur = {
 };
 
 export default function Admin() {
+  const [mounted, setMounted] = useState(false);
   const [nom, setNom] = useState('');
   const [prenom, setPrenom] = useState('');
   const [email, setEmail] = useState('');
@@ -49,6 +50,18 @@ export default function Admin() {
     }
   };
 
+  useEffect(() => {
+    setMounted(true);
+    const unsub = onSnapshot(collection(db, 'utilisateurs'), (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as Omit<Utilisateur, 'id'>),
+      }));
+      setUtilisateurs(data);
+    });
+
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'utilisateurs'), (snapshot) => {
