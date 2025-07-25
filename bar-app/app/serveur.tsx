@@ -18,6 +18,9 @@ import {
   DocumentData,
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import ProtectedRoute from './protectedRoute';
+
+
 
 type Commande = {
   id: string;
@@ -28,6 +31,9 @@ type Commande = {
 };
 
 const STATUTS = ['en_attente', 'en_preparation', 'pret'];
+
+
+
 
 export default function Serveur() {
   const [commandes, setCommandes] = useState<Commande[]>([]);
@@ -75,9 +81,9 @@ export default function Serveur() {
   };
 
   return (
+    <ProtectedRoute allowedRoles={['admin', 'serveur']}>
     <View style={styles.container}>
       <Text style={styles.title}>Interface Serveur</Text>
-
       <View style={styles.filtres}>
         {['toutes', 'en_attente', 'en_preparation', 'pret'].map((statut) => (
           <Pressable
@@ -130,6 +136,7 @@ export default function Serveur() {
         )}
       />
     </View>
+    </ProtectedRoute>
   );
 }
 

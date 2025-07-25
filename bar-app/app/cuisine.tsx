@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
 import { useEffect, useState } from 'react';
-
+import ProtectedRoute from './protectedRoute';
 import { collection, onSnapshot, updateDoc, doc, addDoc } from 'firebase/firestore';
 import { db } from '../firebase'; // Ensure this imports the db from your firebase config
 type Commande = {
@@ -43,6 +43,7 @@ export default function Cuisine() {
 
 
   return (
+    <ProtectedRoute allowedRoles={['admin', 'serveur', 'cuisine']}>
     <View style={styles.container}>
       <Text style={styles.title}>Interface Cuisine</Text>
 
@@ -72,6 +73,7 @@ export default function Cuisine() {
         </View>
       ))}
     </View>
+    </ProtectedRoute>
   );
 }
 
