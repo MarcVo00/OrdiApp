@@ -1,8 +1,9 @@
 // login.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from './context/AuthContext';
+
 
 export default function Login() {
   const { login, role } = useAuth();
@@ -22,6 +23,12 @@ export default function Login() {
       Alert.alert('Erreur', 'Email ou mot de passe invalide');
     }
   };
+  const [mount, setMount] = useState(false);
+    useEffect(() => {
+        setMount(true);
+        return () => setMount(false);
+    }, []);
+    if (!mount) return null; // Ne pas afficher le composant avant que le mount soit vrai
 
   return (
     <View style={styles.container}>
