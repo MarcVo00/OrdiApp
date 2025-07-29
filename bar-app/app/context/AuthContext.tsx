@@ -38,7 +38,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    setUser(userCredential.user);
+    const snap = await getDoc(doc(db, 'utilisateurs', userCredential.user.uid));
+    console.log('[Firestore] Document found?', snap.exists());
+    console.log('[Firestore] Data:', snap.data());
+    
   };
 
   const logout = async () => {

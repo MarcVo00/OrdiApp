@@ -42,6 +42,11 @@ export default function Login() {
       await login(email, password);
       // Force récupération Firestore
       const uid = auth.currentUser?.uid;
+      if (!uid) {
+        Alert.alert('Erreur', 'Utilisateur non trouvé');
+        console.log('[Erreur] UID non trouvé après login');
+        return;
+      }
       const docRef = doc(db, 'utilisateurs', uid!);
       const snap = await getDoc(docRef);
       console.log('[Test direct Firestore] exists?', snap.exists());
