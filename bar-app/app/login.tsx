@@ -10,7 +10,6 @@ export default function Login() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mount, setMount] = useState(false);
 
   // Redirection après login
   useEffect(() => {
@@ -23,11 +22,6 @@ export default function Login() {
     else if (role === 'cuisine') router.replace('/cuisine');
     else Alert.alert('Erreur', 'Rôle inconnu');
   }, [user, role]);
-
-  useEffect(() => {
-    setMount(true);
-  }, []);
-  if (!mount) return null;
 
   const handleLogin = async () => {
     try {
