@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from './context/AuthContext';
+import { auth, db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 
 export default function Login() {
@@ -38,7 +40,17 @@ export default function Login() {
   const handleLogin = async () => {
     try {
       await login(email, password);
+      // Force récupération Firestore
+      const uid = auth.currentUser?.uid;
+      const docRef = doc(db, 'utilisateurs', uid!);
+      const snap = await getDoc(docRef);
+      console.log('[Test direct Firestore] exists?', snap.exists());
+      console.log('[Test direct Firestore] data:', snap.data());
       console.log('Login successful');
+      console.log('[Test direct Firestore] exists?', snap.exists());
+      console.log('[Test direct Firestore] data:', snap.data());
+      Alert.alert('Connexion', snap.exists() ? 'Firestore OK' : 'Document introuvable');
+
   } catch (error) {
       console.error('Login error:', error);
       Alert.alert('Erreur de connexion', 'Veuillez vérifier vos identifiants.');
