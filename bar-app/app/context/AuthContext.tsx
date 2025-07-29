@@ -45,21 +45,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const firebaseUser = userCredential.user;
+const login = async (email: string, password: string) => {
+  const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  const firebaseUser = userCredential.user;
 
-    setUser(firebaseUser); // Immédiat
+  setUser(firebaseUser); // 🔥 met à jour immédiatement le contexte
 
-    // Récupérer le rôle tout de suite
-    const snap = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
-    if (snap.exists()) {
-      const data = snap.data();
-      setRole(data.role ?? null);
-    } else {
-      setRole(null);
-    }
-  };
+  const snap = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
+  const roleFromFirestore = snap.data()?.role ?? null;
+  setRole(roleFromFirestore);
+};
+
 
   const logout = async () => {
     await signOut(auth);
