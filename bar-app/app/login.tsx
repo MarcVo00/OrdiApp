@@ -21,7 +21,9 @@ export default function Login() {
 
     useEffect(() => {
       if (!user || !role) return;
-
+      console.log('User is authenticated, redirecting based on role:', role);
+      console.log('Router before replace:', router);
+      console.log('User:', user);
       if (role === 'admin') router.replace('/');
       else if (role === 'serveur') router.replace('/serveur');
       else if (role === 'cuisine') router.replace('/cuisine');
@@ -36,8 +38,7 @@ export default function Login() {
   const handleLogin = async () => {
     try {
       await login(email, password);
-      console.log('Login successful,user:', user, 'role:', role);
-      Alert.alert('Connexion réussie !');
+      console.log('Login successful');
   } catch (error) {
       console.error('Login error:', error);
       Alert.alert('Erreur de connexion', 'Veuillez vérifier vos identifiants.');
