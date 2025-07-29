@@ -22,8 +22,8 @@ export default function Login() {
     useEffect(() => {
       if (!user || !role) return;
       console.log('User is authenticated, redirecting based on role:', role);
+      console.log('User object:', user);
       console.log('Router before replace:', router);
-      console.log('User:', user);
       if (role === 'admin') router.replace('/');
       else if (role === 'serveur') router.replace('/serveur');
       else if (role === 'cuisine') router.replace('/cuisine');

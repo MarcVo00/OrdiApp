@@ -27,6 +27,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(firebaseUser);
       if (firebaseUser) {
         const snap = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
+        console.log('Firestore data:', snap.exists() ? snap.data() : 'no doc');
         setRole((snap.data()?.role ?? null) as any);
       } else {
         setRole(null);
