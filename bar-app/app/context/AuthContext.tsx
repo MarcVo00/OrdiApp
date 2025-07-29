@@ -27,6 +27,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(firebaseUser);
 
       if (firebaseUser) {
+        console.log('uid', firebaseUser.uid);
+        console.log('tous les utilisateurs', firebaseUser);
+        console.log('tous les utilisateurs de la bdd', db);
         const snap = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
         if (snap.exists()) {
           const data = snap.data();
