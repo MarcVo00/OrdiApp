@@ -1,6 +1,6 @@
-// AuthContext.tsx
+// context/AuthContext.tsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut, User } from 'firebase/auth';
+import { User, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth, db } from '../../firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -25,29 +25,43 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
+
       if (firebaseUser) {
         const snap = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
-        console.log('[Firestore] Document found?', snap.exists());
-        console.log('[Firestore] Data:', snap.data());
-        setRole((snap.data()?.role ?? null) as any);
+        if (snap.exists()) {
+          const data = snap.data();
+          setRole(data.role ?? null);
+        } else {
+          setRole(null);
+        }
       } else {
         setRole(null);
       }
     });
+
     return () => unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    setUser(userCredential.user);
-    const snap = await getDoc(doc(db, 'utilisateurs', userCredential.user.uid));
-    console.log('[Firestore] Document found?', snap.exists());
-    console.log('[Firestore] Data:', snap.data());
-    
+    const firebaseUser = userCredential.user;
+
+    setUser(firebaseUser); // Immédiat
+
+    // Récupérer le rôle tout de suite
+    const snap = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
+    if (snap.exists()) {
+      const data = snap.data();
+      setRole(data.role ?? null);
+    } else {
+      setRole(null);
+    }
   };
 
   const logout = async () => {
     await signOut(auth);
+    setUser(null);
+    setRole(null);
   };
 
   return (
