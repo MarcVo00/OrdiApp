@@ -25,7 +25,8 @@ export default function Login() {
       if (role === 'admin') router.replace('/');
       else if (role === 'serveur') router.replace('/serveur');
       else if (role === 'cuisine') router.replace('/cuisine');
-    }, [user, role]);
+      else router.replace('/login'); // Rediriger vers la page de connexion si le rôle n'est pas reconnu
+    }, [user, role, router]);
 
 
     useEffect(() => {
@@ -35,7 +36,7 @@ export default function Login() {
   const handleLogin = async () => {
     try {
       await login(email, password);
-      console.log('Login successful, role:', role);
+      console.log('Login successful,user:', user, 'role:', role);
       Alert.alert('Connexion réussie !');
   } catch (error) {
       console.error('Login error:', error);

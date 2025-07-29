@@ -1,24 +1,11 @@
 import { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Button,
-  FlatList,
-  StyleSheet,
-  Alert,
-  ScrollView,
-} from 'react-native';
-import {
-  collection,
-  addDoc,
-  onSnapshot,
-  Timestamp,
-} from 'firebase/firestore';
-import { db } from '../firebase';
+import {  View, Text, TextInput, Button, FlatList, StyleSheet, Alert, ScrollView} from 'react-native';
+import { collection, addDoc, onSnapshot, Timestamp, setDoc, doc } from 'firebase/firestore';
+import { db, auth } from '../firebase';
 import ProtectedRoute from './protectedRoute';
 import { useRouter } from 'expo-router';
 import { globalStyles as styles } from './styles/globalStyles';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 
 export default function Admin() {
   const [nom, setNom] = useState('');
@@ -32,8 +19,12 @@ export default function Admin() {
   const ajouterUtilisateur = async () => {
     if (!nom || !prenom || !email) return Alert.alert('Champs requis');
 
-    try {
-      await addDoc(collection(db, 'utilisateurs'), {
+    const defaultPassword = 'motdepasse'; // à modifier plus tard !
+ try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, defaultPassword);
+    const uid = userCredential.user.uid;
+
+      await setDoc(doc(db, 'utilisateurs', uid), {
         nom,
         prenom,
         email,
@@ -41,12 +32,14 @@ export default function Admin() {
         createdAt: Timestamp.now(),
       });
 
+      Alert.alert('Utilisateur ajouté avec succès');
       setNom('');
       setPrenom('');
       setEmail('');
       setRole('serveur');
     } catch (e) {
-      Alert.alert('Erreur lors de l’ajout');
+      console.error(e);
+      Alert.alert('Erreur lors de l’ajout', (e as any).message);
     }
   };
 
