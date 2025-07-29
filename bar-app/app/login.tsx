@@ -14,8 +14,10 @@ export default function Login() {
 
   // Redirection après login
   useEffect(() => {
+    console.log('🧭 useEffect triggered with:', { user, role });
     if (!user || !role) return;
 
+    console.log('✅ Redirection en cours, rôle :', role);
     if (role === 'admin') router.replace('/');
     else if (role === 'serveur') router.replace('/serveur');
     else if (role === 'cuisine') router.replace('/cuisine');
