@@ -1,120 +1,79 @@
-import { useEffect, useState } from 'react';
-import {  View, Text, TextInput, Button, FlatList, StyleSheet, Alert, ScrollView} from 'react-native';
-import { collection, addDoc, onSnapshot, Timestamp, setDoc, doc } from 'firebase/firestore';
-import { db, auth } from '../firebase';
-import ProtectedRoute from './protectedRoute';
-import { useRouter } from 'expo-router';
-import { globalStyles as styles } from './styles/globalStyles';
+// register.tsx
+import { useState } from 'react';
+import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc, Timestamp } from 'firebase/firestore';
+import { auth, db } from '../firebase';
+import { useRouter } from 'expo-router';
 
-export default function Admin() {
+export default function Register() {
+  const router = useRouter();
+
   const [nom, setNom] = useState('');
   const [prenom, setPrenom] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'serveur' | 'cuisine' | 'admin'>('serveur');
-  const [utilisateurs, setUtilisateurs] = useState<any[]>([]);
-  const [mounted, setMounted] = useState(false);
-  const router = useRouter();
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
-  const ajouterUtilisateur = async () => {
-    if (!nom || !prenom || !email) return Alert.alert('Champs requis');
+  const handleRegister = async () => {
+    if (!nom || !prenom || !email || !password || !confirmPassword) {
+      Alert.alert('Tous les champs sont requis');
+      return;
+    }
 
-    const defaultPassword = 'motdepasse'; // à modifier plus tard !
- try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, defaultPassword);
-    const uid = userCredential.user.uid;
+    if (password !== confirmPassword) {
+      Alert.alert('Les mots de passe ne correspondent pas');
+      return;
+    }
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const uid = userCredential.user.uid;
 
       await setDoc(doc(db, 'utilisateurs', uid), {
         nom,
         prenom,
         email,
-        role,
+        valide: false,
+        role: null,
         createdAt: Timestamp.now(),
       });
 
-      Alert.alert('Utilisateur ajouté avec succès');
-      setNom('');
-      setPrenom('');
-      setEmail('');
-      setRole('serveur');
-    } catch (e) {
+      Alert.alert(
+        'Compte créé',
+        'Votre compte a été enregistré. Il sera activé par un administrateur.'
+      );
+
+      router.replace('/login');
+    } catch (e: any) {
       console.error(e);
-      Alert.alert('Erreur lors de l’ajout', (e as any).message);
+      Alert.alert('Erreur', e.message);
     }
   };
 
-    useEffect(() => {
-        setMounted(true);
-        const unsub = onSnapshot(collection(db, 'utilisateurs'), (snapshot) => {
-        const data = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...(doc.data() as any),
-        }));
-        setUtilisateurs(data);
-        });
-    
-        return () => {
-        unsub();
-        };
-    }, []);
-
-    if (!mounted) return null;
-
   return (
-    <ProtectedRoute allowedRoles={['admin']}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>👤 Ajouter un utilisateur</Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>Créer un compte</Text>
 
-        <TextInput
-          placeholder="Nom"
-          value={nom}
-          onChangeText={setNom}
-          style={styles.input}
-        />
-        <TextInput
-          placeholder="Prénom"
-          value={prenom}
-          onChangeText={setPrenom}
-          style={styles.input}
-        />
-        <TextInput
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          style={styles.input}
-          keyboardType="email-address"
-        />
-        <View style={styles.roles}>
-          {['serveur', 'cuisine', 'admin'].map((r) => (
-            <Button
-              key={r}
-              title={r}
-              onPress={() => setRole(r as any)}
-              color={role === r ? '#000' : '#ccc'}
-            />
-          ))}
-        </View>
+      <TextInput placeholder="Nom" value={nom} onChangeText={setNom} style={styles.input} />
+      <TextInput placeholder="Prénom" value={prenom} onChangeText={setPrenom} style={styles.input} />
+      <TextInput placeholder="Email" value={email} onChangeText={setEmail} style={styles.input} keyboardType="email-address" autoCapitalize="none" />
+      <TextInput placeholder="Mot de passe" value={password} onChangeText={setPassword} style={styles.input} secureTextEntry />
+      <TextInput placeholder="Confirmer le mot de passe" value={confirmPassword} onChangeText={setConfirmPassword} style={styles.input} secureTextEntry />
 
-        <Button title="Ajouter" onPress={ajouterUtilisateur} />
-
-        <Text style={styles.subtitle}>📋 Utilisateurs enregistrés</Text>
-        <FlatList
-          data={utilisateurs}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.user}>
-              <Text>{item.nom} {item.prenom} ({item.role})</Text>
-              <Text style={styles.email}>{item.email}</Text>
-            </View>
-          )}
-        />
-
-        <Text style={styles.subtitle}>🛠 Accès admin</Text>
-        <Button title="Gérer les produits" onPress={() => router.push('/produits')} />
-        <Button title="Gérer les catégories" onPress={() => router.push('/categories')} />
-        <Button title="Voir statistiques" onPress={() => router.push('/stats')} />
-        <Button title="Créer un compte" onPress={() => router.push('/register')} />
-      </ScrollView>
-    </ProtectedRoute>
+      <Button title="S'inscrire" onPress={handleRegister} />
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', padding: 24 },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 24 },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 6,
+    padding: 12,
+    marginBottom: 16,
+  },
+});

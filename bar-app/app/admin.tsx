@@ -1,122 +1,132 @@
+// admin.tsx
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Button, FlatList, StyleSheet, Alert } from 'react-native';
+import { View, Text, FlatList, Button, StyleSheet, Alert } from 'react-native';
 import {
   collection,
-  addDoc,
   onSnapshot,
-  Timestamp,
+  updateDoc,
+  doc,
 } from 'firebase/firestore';
-import { db } from '../firebase'; // Assure-toi que ce fichier existe
+import { db } from '../firebase';
 import ProtectedRoute from './protectedRoute';
+import { Picker } from '@react-native-picker/picker';
 import { globalStyles as styles } from './styles/globalStyles';
-
 
 type Utilisateur = {
   id: string;
   nom: string;
   prenom: string;
   email: string;
-  role: 'serveur' | 'cuisine' | 'admin';
+  role: 'admin' | 'serveur' | 'cuisine' | null;
+  valide: boolean;
 };
 
 export default function Admin() {
-  const [mounted, setMounted] = useState(false);
-  const [nom, setNom] = useState('');
-  const [prenom, setPrenom] = useState('');
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'serveur' | 'cuisine' | 'admin'>('serveur');
   const [utilisateurs, setUtilisateurs] = useState<Utilisateur[]>([]);
-
-
-
-  const ajouterUtilisateur = async () => {
-    if (!nom || !prenom || !email) return Alert.alert('Champs requis');
-
-    try {
-      await addDoc(collection(db, 'utilisateurs'), {
-        nom,
-        prenom,
-        email,
-        role,
-        createdAt: Timestamp.now(),
-      });
-
-      setNom('');
-      setPrenom('');
-      setEmail('');
-      setRole('serveur');
-    } catch (e) {
-      Alert.alert('Erreur lors de l’ajout');
-    }
-  };
+  const [mounted, setMounted] = useState(false);
+  const [selectedRoles, setSelectedRoles] = useState<Record<string, 'admin' | 'serveur' | 'cuisine'>>({});
 
   useEffect(() => {
-      const unsub = onSnapshot(collection(db, 'utilisateurs'), (snapshot) => {
+    const unsub = onSnapshot(collection(db, 'utilisateurs'), (snapshot) => {
       const data = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...(doc.data() as Omit<Utilisateur, 'id'>),
       }));
       setUtilisateurs(data);
+
+      // Pré-sélectionner un rôle par défaut pour les utilisateurs non-validés
+      const defaults: Record<string, 'admin' | 'serveur' | 'cuisine'> = {};
+      data.forEach((u) => {
+        if (!u.valide) {
+          defaults[u.id] = u.role ?? 'serveur';
+        }
+      });
+      setSelectedRoles(defaults);
     });
+
     setMounted(true);
-    return () => {
-      unsub();
-    };
+    return () => unsub();
   }, []);
-  // Assure que le composant est monté avant de charger les données
+
+  const validerUtilisateur = async (id: string) => {
+    const role = selectedRoles[id];
+    if (!role) {
+      Alert.alert('Erreur', 'Veuillez sélectionner un rôle');
+      return;
+    }
+
+    await updateDoc(doc(db, 'utilisateurs', id), {
+      valide: true,
+      role,
+    });
+
+    Alert.alert('Utilisateur validé');
+  };
+
   if (!mounted) return null;
 
   return (
     <ProtectedRoute allowedRoles={['admin']}>
-    <View style={styles.container}>
-      <Text style={styles.title}>👤 Ajouter un utilisateur</Text>
+      <View style={styles.container}>
+        <Text style={styles.title}>👥 Liste des utilisateurs</Text>
 
-      <TextInput
-        placeholder="Nom"
-        value={nom}
-        onChangeText={setNom}
-        style={styles.input}
-      />
-      <TextInput
-        placeholder="Prénom"
-        value={prenom}
-        onChangeText={setPrenom}
-        style={styles.input}
-      />
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        style={styles.input}
-        keyboardType="email-address"
-      />
-      <View style={styles.roles}>
-        {['serveur', 'cuisine', 'admin'].map((r) => (
-          <Button
-            key={r}
-            title={r}
-            onPress={() => setRole(r as any)}
-            color={role === r ? '#000' : '#ccc'}
-          />
-        ))}
+        <FlatList
+          data={utilisateurs}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.user}>
+              <Text style={styles.bold}>
+                {item.nom} {item.prenom} — {item.email}
+              </Text>
+              <Text>Rôle : {item.role ?? 'non assigné'} | Validé : {item.valide ? '✅' : '⏳'}</Text>
+
+              {!item.valide && (
+                <>
+                  <Picker
+                    selectedValue={selectedRoles[item.id]}
+                    onValueChange={(val) =>
+                      setSelectedRoles((prev) => ({ ...prev, [item.id]: val }))
+                    }
+                    style={styles.picker}
+                  >
+                    <Picker.Item label="Choisir un rôle" value="" />
+                    <Picker.Item label="Admin" value="admin" />
+                    <Picker.Item label="Serveur" value="serveur" />
+                    <Picker.Item label="Cuisine" value="cuisine" />
+                  </Picker>
+
+                  <Button
+                    title="✅ Valider"
+                    onPress={() => validerUtilisateur(item.id)}
+                  />
+                </>
+              )}
+            </View>
+          )}
+        />
       </View>
-
-      <Button title="Ajouter" onPress={ajouterUtilisateur} />
-
-      <Text style={styles.subtitle}>📋 Utilisateurs enregistrés</Text>
-
-      <FlatList
-        data={utilisateurs}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.user}>
-            <Text>{item.nom} {item.prenom} ({item.role})</Text>
-            <Text style={styles.email}>{item.email}</Text>
-          </View>
-        )}
-      />
-    </View>
     </ProtectedRoute>
   );
 }
 
+const styles = StyleSheet.create({
+  ...styles, // styles globaux
+  user: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    backgroundColor: '#fff',
+  },
+  bold: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  picker: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    marginVertical: 8,
+  },
+});

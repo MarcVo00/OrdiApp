@@ -11,12 +11,13 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Redirection après login
   useEffect(() => {
-    console.log('🧭 useEffect triggered with:', { user, role });
+    if (user && role === null) {
+      Alert.alert('Compte non validé', 'Un administrateur doit valider votre accès.');
+    }
+
     if (!user || !role) return;
 
-    console.log('✅ Redirection en cours, rôle :', role);
     if (role === 'admin') router.replace('/');
     else if (role === 'serveur') router.replace('/serveur');
     else if (role === 'cuisine') router.replace('/cuisine');
@@ -26,10 +27,9 @@ export default function Login() {
   const handleLogin = async () => {
     try {
       await login(email, password);
-      // Pas besoin d'alerte ici : redirection automatique
     } catch (error) {
       console.error('Login error:', error);
-      Alert.alert('Erreur de connexion', 'Identifiants incorrects ou utilisateur non reconnu.');
+      Alert.alert('Erreur de connexion', 'Identifiants incorrects ou utilisateur inexistant.');
     }
   };
 
@@ -52,6 +52,7 @@ export default function Login() {
         style={styles.input}
       />
       <Button title="Se connecter" onPress={handleLogin} />
+      <Button title="Créer un compte" onPress={() => router.push('/register')} />
     </View>
   );
 }

@@ -27,16 +27,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(firebaseUser);
 
       if (firebaseUser) {
-        console.log('uid', firebaseUser.uid);
-        console.log('tous les utilisateurs', firebaseUser);
-        console.log('tous les utilisateurs de la bdd', db);
         const snap = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
-        if (snap.exists()) {
-          const data = snap.data();
-          setRole(data.role ?? null);
-        } else {
+        const data = snap.data();
+
+        if (data?.valide === false) {
           setRole(null);
+          await signOut(auth);
+          alert('Votre compte est en attente de validation par un administrateur.');
+          return;
         }
+
+        setRole(data?.role ?? null);
       } else {
         setRole(null);
       }
@@ -45,17 +46,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
-const login = async (email: string, password: string) => {
-  const userCredential = await signInWithEmailAndPassword(auth, email, password);
-  const firebaseUser = userCredential.user;
+  const login = async (email: string, password: string) => {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const firebaseUser = userCredential.user;
 
-  setUser(firebaseUser); // 🔥 met à jour immédiatement le contexte
+    setUser(firebaseUser);
 
-  const snap = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
-  const roleFromFirestore = snap.data()?.role ?? null;
-  setRole(roleFromFirestore);
-};
+    const snap = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
+    const data = snap.data();
 
+    if (data?.valide === false) {
+      setRole(null);
+      await signOut(auth);
+      alert('Votre compte est en attente de validation par un administrateur.');
+      return;
+    }
+
+    setRole(data?.role ?? null);
+  };
 
   const logout = async () => {
     await signOut(auth);
