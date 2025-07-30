@@ -10,7 +10,7 @@ import {
 import { db } from '../firebase';
 import ProtectedRoute from './protectedRoute';
 import { Picker } from '@react-native-picker/picker';
-import { globalStyles as styles } from './styles/globalStyles';
+
 
 type Utilisateur = {
   id: string;
@@ -65,40 +65,57 @@ export default function Admin() {
 
   if (!mounted) return null;
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 20,
+      backgroundColor: '#fff',
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      marginBottom: 20,
+    },
+    userCard: {
+      padding: 15,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: '#ccc',
+      borderRadius: 5,
+    },
+    userName: {
+      fontSize: 18,
+      fontWeight: 'bold',
+    },
+    picker: {
+      height: 50,
+      width: '100%',
+      marginVertical: 10,
+    },
+  });
   return (
     <ProtectedRoute allowedRoles={['admin']}>
       <View style={styles.container}>
-        <Text style={styles.title}>👥 Liste des utilisateurs</Text>
-
+        <Text style={styles.title}>Gestion des utilisateurs</Text>
         <FlatList
           data={utilisateurs}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <View style={styles.user}>
-              <Text style={styles.bold}>
-                {item.nom} {item.prenom} — {item.email}
-              </Text>
-              <Text>Rôle : {item.role ?? 'non assigné'} | Validé : {item.valide ? '✅' : '⏳'}</Text>
-
+            <View style={styles.userCard}>
+              <Text style={styles.userName}>{item.prenom} {item.nom}</Text>
+              <Text>{item.email}</Text>
               {!item.valide && (
                 <>
                   <Picker
-                    selectedValue={selectedRoles[item.id]}
-                    onValueChange={(val) =>
-                      setSelectedRoles((prev) => ({ ...prev, [item.id]: val }))
-                    }
+                    selectedValue={selectedRoles[item.id] || 'serveur'}
+                    onValueChange={(value) => setSelectedRoles({ ...selectedRoles, [item.id]: value })}
                     style={styles.picker}
                   >
-                    <Picker.Item label="Choisir un rôle" value="" />
                     <Picker.Item label="Admin" value="admin" />
                     <Picker.Item label="Serveur" value="serveur" />
                     <Picker.Item label="Cuisine" value="cuisine" />
                   </Picker>
-
-                  <Button
-                    title="✅ Valider"
-                    onPress={() => validerUtilisateur(item.id)}
-                  />
+                  <Button title="Valider l'utilisateur" onPress={() => validerUtilisateur(item.id)} />
                 </>
               )}
             </View>
@@ -108,25 +125,3 @@ export default function Admin() {
     </ProtectedRoute>
   );
 }
-
-const styles = StyleSheet.create({
-  ...styles, // styles globaux
-  user: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    backgroundColor: '#fff',
-  },
-  bold: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  picker: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    marginVertical: 8,
-  },
-});
