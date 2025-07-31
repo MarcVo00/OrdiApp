@@ -41,3 +41,10 @@ app-example
 # Log files
 *.log
 list-users
+
+# Firebase
+firebase-debug.log
+firebase.json
+firestore.indexes.json
+firestore.rules
+config.tsx

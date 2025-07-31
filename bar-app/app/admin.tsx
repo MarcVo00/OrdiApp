@@ -63,7 +63,15 @@ export default function Admin() {
     Alert.alert('Utilisateur validé');
   };
 
+  //tri les utilisateurs non validés d'abord
+  utilisateurs.sort((a, b) => {
+    if (!a.valide && b.valide) return -1;
+    if (a.valide && !b.valide) return 1;
+    return 0;
+  });
+
   if (!mounted) return null;
+
 
   const styles = StyleSheet.create({
     container: {
