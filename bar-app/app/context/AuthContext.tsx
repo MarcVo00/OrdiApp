@@ -13,7 +13,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  role: 'admin',
+  role: null,
   login: async () => {},
   logout: async () => {},
 });
@@ -24,10 +24,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('Auth state changed:', firebaseUser);
       setUser(firebaseUser);
 
       if (firebaseUser) {
         const snap = await getDoc(doc(db, 'utilisateurs', firebaseUser.email || firebaseUser.uid));
+        console.log('User document snapshot:', snap);
         const data = snap.data();
 
         if (data?.valide === false) {
@@ -38,6 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         setRole(data?.role ?? null);
+        console.log('User role set to:', data?.role);
       } else {
         setRole(null);
       }
@@ -47,6 +50,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
+    console.log('Logging in with email:', email);
+    if (!email || !password) {
+      throw new Error('Email and password must be provided');
+    }
+    console.log('Attempting to sign in with email and password');
+    // Sign in the user with Firebase Authentication
+    if (!auth) {
+      throw new Error('Firebase auth is not initialized');
+    }
+    console.log('Firebase auth is initialized');
+    
+    
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
     console.log('User logged in:', firebaseUser);
