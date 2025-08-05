@@ -2,12 +2,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import dotenv from 'dotenv';
-import dotenvEnxpand from 'dotenv-expand';
-
-// Load environment variables from .env file
-const myEnv = dotenv.config();
-dotenvEnxpand.expand(myEnv);
 
 
 const firebaseConfig = {
@@ -18,9 +12,6 @@ const firebaseConfig = {
   messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
-if (!firebaseConfig.apiKey) {
-  throw new Error('Firebase API key is not defined in the environment variables.');
-}
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
