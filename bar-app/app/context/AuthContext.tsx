@@ -13,7 +13,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  role: null,
+  role: 'admin',
   login: async () => {},
   logout: async () => {},
 });
