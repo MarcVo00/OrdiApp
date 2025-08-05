@@ -2,6 +2,13 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import 'dotenv/config';
+
+// Ensure that environment variables are loaded
+if (!process.env.EXPO_PUBLIC_FIREBASE_API_KEY) {
+  throw new Error('Missing Firebase API Key in environment variables');
+}
+
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
