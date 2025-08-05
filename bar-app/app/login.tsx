@@ -6,6 +6,9 @@ import { useAuth } from './context/AuthContext';
 
 export default function Login() {
   const { user, login, role } = useAuth();
+  console.log('Current user:', user);
+  console.log('Current role:', role);
+  console.log('Auth context:', { user, role, login });
   const router = useRouter();
 
   const [email, setEmail] = useState('');
