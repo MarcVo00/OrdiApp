@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(firebaseUser);
 
       if (firebaseUser) {
-        const snap = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
+        const snap = await getDoc(doc(db, 'utilisateurs', firebaseUser.email || firebaseUser.uid));
         const data = snap.data();
 
         if (data?.valide === false) {
@@ -49,10 +49,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const login = async (email: string, password: string) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
+    console.log('User logged in:', firebaseUser);
 
     setUser(firebaseUser);
 
-    const snap = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
+    const snap = await getDoc(doc(db, 'utilisateurs', firebaseUser.email || firebaseUser.uid));
     const data = snap.data();
 
     if (data?.valide === false) {
