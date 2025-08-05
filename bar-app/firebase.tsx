@@ -4,6 +4,13 @@ import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import 'dotenv/config';
 
+const dotenv = require('dotenv');
+const dotenvExpand = require('dotenv-expand');
+
+const myEnv = dotenv.config();
+dotenvExpand.expand(myEnv);
+
+
 // Ensure that environment variables are loaded
 if (!process.env.EXPO_PUBLIC_FIREBASE_API_KEY) {
   throw new Error('Missing Firebase API Key in environment variables');
