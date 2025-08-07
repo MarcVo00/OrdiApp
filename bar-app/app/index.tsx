@@ -1,14 +1,14 @@
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import { useAuth } from './context/AuthContext';
+import { userContext } from './login';
 import { ActivityIndicator, View } from 'react-native';
 
 export default function Index() {
-  const { user, role } = useAuth();
+  const { uid, email, role } = userContext;
   const router = useRouter();
 
   useEffect(() => {
-    if (user === null) {
+    if (uid === null) {
       router.replace('/login');
     } else if (role === 'admin') {
       router.replace('/admin'); // ou '/produits' selon ta page admin principale
@@ -17,7 +17,7 @@ export default function Index() {
     } else if (role === 'cuisine') {
       router.replace('/cuisine');
     }
-  }, [user, role]);
+  }, [uid, role]);
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

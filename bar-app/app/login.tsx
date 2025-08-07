@@ -7,6 +7,17 @@ import {auth, db} from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { getDoc, doc } from 'firebase/firestore';
 
+interface UserContextType {
+  uid: string;
+  email: string;
+  role?: 'admin' | 'serveur' | 'cuisine' | null;
+}
+
+const userContext: UserContextType = {
+  uid: '',
+  email: '',
+  role: undefined,
+};
 
 export default function Login() {
   const router = useRouter();
@@ -15,6 +26,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [role, setRole] = useState<'admin' | 'serveur' | 'cuisine' | null>(null);
+
   const authFirebase = auth;
 
   const handleLogin = async () => {
@@ -22,7 +34,13 @@ export default function Login() {
     try {
       const response = await signInWithEmailAndPassword(authFirebase, email, password);
       setLoading(false);
+      
       const user = response.user;
+      setRole(userContext.role || null);
+      userContext.uid = user.uid;
+      userContext.email = user.email || '';
+      console.log('User logged in:', userContext);
+      userContext.role = role;
       const userDoc = await getDoc(doc(db, 'utilisateurs', user.uid));
       console.log('User document:', userDoc.data());
       console.log('User role:', userDoc.data()?.role);
@@ -52,6 +70,7 @@ export default function Login() {
     }
   }, [role]);
 
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Connexion</Text>
@@ -77,7 +96,8 @@ export default function Login() {
       <Button title="Créer un compte" onPress={() => router.push('/register')} />
     </View>
   );
-}
+};
+export { userContext };
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 24 },

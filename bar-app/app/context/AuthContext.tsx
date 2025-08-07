@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(firebaseUser);
 
       if (firebaseUser) {
-        const snap = await getDoc(doc(db, 'utilisateurs', firebaseUser.email || firebaseUser.uid));
+        const snap = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
         console.log('User document snapshot:', snap);
         const data = snap.data();
 
