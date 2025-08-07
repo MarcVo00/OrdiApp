@@ -15,6 +15,7 @@ export type AppUser = {
 type AuthContextType = {
   user: AppUser;
   setUser: (user: AppUser) => void;
+  role: 'admin' | 'serveur' | 'cuisine' | null;
   loading: boolean;
 };
 
@@ -22,6 +23,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   setUser: () => {},
+  role: null,
   loading: true,
 });
 
@@ -29,7 +31,9 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser>(null);
   const [loading, setLoading] = useState(true);
+  const role = user?.role || null;
 
+  // Écoute des changements d'authentification
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
@@ -60,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading }}>
+    <AuthContext.Provider value={{ user, setUser, role, loading }}>
       {children}
     </AuthContext.Provider>
   );
