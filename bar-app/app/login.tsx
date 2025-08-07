@@ -1,38 +1,34 @@
 // login.tsx
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from './context/AuthContext';
+import {auth} from '../firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+
 
 export default function Login() {
-  const { user, login, role } = useAuth();
-  console.log('Current user:', user);
-  console.log('Current role:', role);
-  console.log('Auth context:', { user, role, login });
   const router = useRouter();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-
-  useEffect(() => {
-    if (user && role === null) {
-      Alert.alert('Compte non validé', 'Un administrateur doit valider votre accès.');
-    }
-
-    if (!user || !role) return;
-
-    if (role === 'admin') router.replace('/');
-    else if (role === 'serveur') router.replace('/serveur');
-    else if (role === 'cuisine') router.replace('/cuisine');
-    else Alert.alert('Erreur', 'Rôle inconnu');
-  }, [user, role]);
+  const [loading, setLoading] = useState(false);
+  const authFirebase = auth;
 
   const handleLogin = async () => {
+    setLoading(true);
     try {
-      await login(email, password);
-    } catch (error) {
+      const response = await signInWithEmailAndPassword(authFirebase, email, password);
+      console.log(response);
+      alert('Check your email for verification link');
+      setLoading(false);
+      router.replace('/');
+    } catch (error: any) {
       console.error('Login error:', error);
-      Alert.alert('Erreur de connexion', 'Identifiants incorrects ou utilisateur inexistant.');
+      Alert.alert('Erreur de connexion', error.message);
+      setLoading(false);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -54,6 +50,9 @@ export default function Login() {
         secureTextEntry
         style={styles.input}
       />
+      {loading ? (
+        <ActivityIndicator size="large" color="#0000ff" />
+      ) : null}
       <Button title="Se connecter" onPress={handleLogin} />
       <Button title="Créer un compte" onPress={() => router.push('/register')} />
     </View>
