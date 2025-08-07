@@ -20,14 +20,17 @@ export default function Login() {
     setLoading(true);
     try {
       const response = await signInWithEmailAndPassword(authFirebase, email, password);
-      console.log(response);
       setLoading(false);
       const user = response.user;
       const userDoc = await getDoc(doc(db, 'utilisateurs', user.uid));
-      console.log('User document snapshot:', userDoc);
       if (userDoc.exists()) {
-        console.log("j'existe")
-        console.log('User data:', userDoc.data());
+        if (userDoc.data().role === 'admin') {
+          router.replace('/admin');
+        } else if (userDoc.data().role === 'serveur') {
+          router.replace('/serveur');
+        } else if (userDoc.data().role === 'cuisine') {
+          router.replace('/cuisine');
+        }
       }
     } catch (error: any) {
       console.error('Login error:', error);
