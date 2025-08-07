@@ -42,23 +42,12 @@ const refreshUserData = async (firebaseUser: FirebaseUser | null) => {
     if (firebaseUser) {
       const userDoc = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
       
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        setUser({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          role: userData.role || null,
-          valide: userData.valide || false
-        });
-      } else {
-        // Nouvel utilisateur sans document utilisateur
-        setUser({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          role: null,
-          valide: false
-        });
-      }
+      setUser({
+        uid: firebaseUser.uid,
+        email: firebaseUser.email || '',
+        role: userDoc.exists() ? (userDoc.data().role as UserRole) : null,
+        valide: userDoc.exists() ? userDoc.data().valide : false
+      });
     } else {
       setUser(null);
     }
@@ -67,7 +56,7 @@ const refreshUserData = async (firebaseUser: FirebaseUser | null) => {
     setUser(null);
   } finally {
     setLoading(false);
-    if (!initialCheckDone) setInitialCheckDone(true);
+    setInitialCheckDone(true);
   }
 };
 

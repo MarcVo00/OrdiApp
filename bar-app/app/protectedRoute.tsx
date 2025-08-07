@@ -1,5 +1,4 @@
-// components/ProtectedRoute.tsx
-import { useAuth, UserRole } from './context/AuthContext';
+import { useAuth } from './context/AuthContext';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
@@ -8,26 +7,42 @@ export default function ProtectedRoute({
   allowedRoles,
   children,
 }: {
-  allowedRoles: UserRole[];
+  allowedRoles: ('admin' | 'serveur' | 'cuisine')[];
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth();
+  const { user, loading, initialCheckDone } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && user?.role && !allowedRoles.includes(user.role)) {
-      // Redirige vers la page appropriée selon le rôle
+    if (!initialCheckDone || loading) return;
+
+    if (!user) {
+      // Si non connecté, rediriger vers login
+      router.replace('/login');
+    } else if (!user.valide) {
+      // Si compte non validé
+      router.replace('/pending');
+    } else if (user.role && !allowedRoles.includes(user.role)) {
+      // Si rôle non autorisé
       switch(user.role) {
         case 'admin': router.replace('/admin'); break;
         case 'serveur': router.replace('/serveur'); break;
         case 'cuisine': router.replace('/cuisine'); break;
-        default: router.replace('/login');
+        default: router.replace('/profile');
       }
     }
-  }, [user, loading]);
+  }, [user, loading, initialCheckDone, allowedRoles]);
 
-  if (loading || !user) {
-    return <ActivityIndicator />;
+  if (loading || !initialCheckDone) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if (!user || !user.valide || (user.role && !allowedRoles.includes(user.role))) {
+    return null; // La redirection est gérée par le useEffect
   }
 
   return <>{children}</>;
