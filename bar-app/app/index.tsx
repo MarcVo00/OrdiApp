@@ -8,21 +8,23 @@ export default function Index() {
   const { user, loading } = useAuth();
 
   useEffect(() => {
-    if (loading) return;
-
-    if (!user) {
-      router.replace('/login');
-    } else {
-      switch(user.role) {
-        case 'admin': 
-          router.replace('/admin');
-          break;
-        case 'serveur': 
-          router.replace('/serveur');
-          break;
-        case 'cuisine': 
-          router.replace('/cuisine');
-          break;
+    if (!loading) {
+      if (!user) {
+        router.replace('/login');
+      } else {
+        switch(user.role) {
+          case 'admin': 
+            router.replace('/admin');
+            break;
+          case 'serveur': 
+            router.replace('/serveur');
+            break;
+          case 'cuisine': 
+            router.replace('/cuisine');
+            break;
+          default:
+            router.replace('/profile'); // Page par défaut si rôle non défini
+        }
       }
     }
   }, [user, loading]);
