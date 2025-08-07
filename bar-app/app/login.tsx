@@ -1,60 +1,33 @@
-// login.tsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import {auth, db} from '../firebase';
+import { auth } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { getDoc, doc } from 'firebase/firestore';
-
-interface UserContextType {
-  uid: string;
-  email: string;
-  role?: 'admin' | 'serveur' | 'cuisine' | null;
-}
-
-const userContext: UserContextType = {
-  uid: '',
-  email: '',
-  role: undefined,
-};
+import { useAuth } from './context/AuthContext';
 
 export default function Login() {
   const router = useRouter();
+  const { setUser } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const authFirebase = auth;
-
   const handleLogin = async () => {
     setLoading(true);
     try {
-      const response = await signInWithEmailAndPassword(authFirebase, email, password);
-      setLoading(false);
+      const response = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = response.user;
       
-      const user = response.user;
-      console.log('User logged in:', userContext);
-      const userDoc = await getDoc(doc(db, 'utilisateurs', user.uid));
-      const userData = userDoc.data();
-      userContext.uid = user.uid;
-      userContext.email = user.email || '';
-      userContext.role = userData?.role || null;
-      console.log('User document:', userDoc.data());
-      console.log('User role:', userDoc.data()?.role);
-      if (userDoc.exists()) {
-        if (userDoc.data()?.role === 'admin') {
-          router.replace('/admin');
-        } else if (userDoc.data()?.role === 'serveur') {
-          router.replace('/serveur');
-        } else if (userDoc.data()?.role === 'cuisine') {
-          router.replace('/cuisine');
-        }
-      }
+      setUser({
+        uid: firebaseUser.uid,
+        email: firebaseUser.email || '',
+        role: null
+      });
+
+      router.replace('/');
     } catch (error: any) {
-      console.error('Login error:', error);
       Alert.alert('Erreur de connexion', error.message);
-      setLoading(false);
     } finally {
       setLoading(false);
     }
@@ -80,13 +53,15 @@ export default function Login() {
       />
       {loading ? (
         <ActivityIndicator size="large" color="#0000ff" />
-      ) : null}
-      <Button title="Se connecter" onPress={handleLogin} />
-      <Button title="Créer un compte" onPress={() => router.push('/register')} />
+      ) : (
+        <>
+          <Button title="Se connecter" onPress={handleLogin} />
+          <Button title="Créer un compte" onPress={() => router.push('/register')} />
+        </>
+      )}
     </View>
   );
-};
-export { userContext };
+}
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 24 },

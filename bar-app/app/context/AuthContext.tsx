@@ -1,49 +1,76 @@
-/*// context/AuthContext.tsx
-import { createContext, useContext, useState, useEffect } from 'react';
+// context/AuthContext.tsx
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { auth, db } from '../../firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { ReactNode } from 'react';
+import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
 
-type User = {
+// Type pour notre utilisateur
+export type AppUser = {
   uid: string;
   email: string;
-  role?: 'admin' | 'serveur' | 'cuisine' | null;
+  role: 'admin' | 'serveur' | 'cuisine' | null;
+} | null;
+
+// Type pour le contexte
+type AuthContextType = {
+  user: AppUser;
+  setUser: (user: AppUser) => void;
+  loading: boolean;
 };
-const AuthContext = createContext<User | null>(null);
 
+// Création du contexte avec des valeurs par défaut
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  setUser: () => {},
+  loading: true,
+});
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+// Provider
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<AppUser>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        const docSnap = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
-        
-        // Conversion explicite pour email ('' si null)
-        setUser({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email || '', // Conversion de null vers string vide
-          role: docSnap.exists() ? docSnap.data().role : null
-        });
+        try {
+          // Récupérer les infos supplémentaires de Firestore
+          const userDoc = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
+          
+          setUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            role: userDoc.exists() ? (userDoc.data().role as 'admin' | 'serveur' | 'cuisine') : null
+          });
+        } catch (error) {
+          console.error("Erreur lors de la récupération des données utilisateur:", error);
+          setUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            role: null
+          });
+        }
       } else {
         setUser(null);
       }
+      setLoading(false);
     });
+
     return unsubscribe;
   }, []);
 
-  // ... reste du code
-
-return (
-    <AuthContext.Provider value={user}>
+  return (
+    <AuthContext.Provider value={{ user, setUser, loading }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-
-export function useAuth() {
-  return useContext(AuthContext);
-}
-*/
+// Hook personnalisé
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
