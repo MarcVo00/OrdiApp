@@ -3,8 +3,9 @@ import { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from './context/AuthContext';
-import {auth} from '../firebase';
+import {auth, db} from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { getDoc, doc } from 'firebase/firestore';
 
 
 export default function Login() {
@@ -20,9 +21,12 @@ export default function Login() {
     try {
       const response = await signInWithEmailAndPassword(authFirebase, email, password);
       console.log(response);
-      alert('Check your email for verification link');
       setLoading(false);
-      router.replace('/');
+      const user = response.user;
+      const userDoc = await getDoc(doc(db, 'utilisateurs', user.email || user.uid));
+      if (userDoc.exists()) {
+        console.log('User data:', userDoc.data());
+      }
     } catch (error: any) {
       console.error('Login error:', error);
       Alert.alert('Erreur de connexion', error.message);
