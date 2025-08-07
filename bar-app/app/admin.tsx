@@ -102,7 +102,7 @@ export default function Admin() {
     },
   });
   return (
-    <ProtectedRoute allowedRoles={['admin']}>
+    alert('Bienvenue dans l\'interface d\'administration !'),
       <View style={styles.container}>
         <Text style={styles.title}>Gestion des utilisateurs</Text>
         <FlatList
@@ -130,6 +130,5 @@ export default function Admin() {
           )}
         />
       </View>
-    </ProtectedRoute>
   );
 }
