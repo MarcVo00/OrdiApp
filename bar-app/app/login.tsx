@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useAuth } from './context/AuthContext';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function Login() {
   const router = useRouter();
@@ -18,14 +19,24 @@ export default function Login() {
     try {
       const response = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = response.user;
-      
+      const userDoc = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
+      const role = userDoc.exists() ? (userDoc.data().role as 'admin' | 'serveur' | 'cuisine') : null;
+
       setUser({
         uid: firebaseUser.uid,
         email: firebaseUser.email || '',
-        role: null
+        role: role,
       });
-
-      router.replace('/');
+      console.log('Utilisateur connecté:', firebaseUser.email, 'Rôle:', role);
+      // Redirection après connexion
+      if (role === 'admin') {
+        router.replace('/admin');
+      } else if (role === 'serveur') {
+        router.replace('/serveur');
+      } else if (role === 'cuisine') {
+        router.replace('/cuisine');
+      }
+      
     } catch (error: any) {
       Alert.alert('Erreur de connexion', error.message);
     } finally {
