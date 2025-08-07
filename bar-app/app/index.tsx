@@ -8,30 +8,45 @@ export default function Index() {
   const { user, loading, initialCheckDone } = useAuth(); // Ajoutez initialCheckDone dans votre AuthContext
 
   useEffect(() => {
-    // Ne rien faire tant que le chargement initial n'est pas terminé
-    if (!initialCheckDone || loading) return;
+  if (!initialCheckDone || loading) {
+    console.log("Waiting for auth check to complete...");
+    return;
+  }
 
-    if (!user) {
-      router.replace('/login');
-    } else if (user.role) {
-      switch(user.role) {
-        case 'admin': 
-          router.replace('/admin');
-          break;
-        case 'serveur': 
-          router.replace('/serveur');
-          break;
-        case 'cuisine': 
-          router.replace('/cuisine');
-          break;
-        default:
-          router.replace('/profile'); // Page par défaut si rôle non défini
-      }
-    } else {
-      router.replace('/profile'); // Redirection vers le profil si l'utilisateur est connecté
-    }
-  }, [user, loading, initialCheckDone]);
+  console.log("Auth check complete. User:", user);
 
+  if (!user) {
+    console.log("No user, redirecting to login");
+    router.replace('/login');
+    return;
+  }
+
+  // User is logged in but not validated
+  if (!user.valide) {
+    console.log("User not validated, redirecting to pending");
+    router.replace('/pending');
+    return;
+  }
+
+  // User is logged in and validated
+  switch(user.role) {
+    case 'admin':
+      console.log("Redirecting to admin");
+      router.replace('/admin');
+      break;
+    case 'serveur':
+      console.log("Redirecting to serveur");
+      router.replace('/serveur');
+      break;
+    case 'cuisine':
+      console.log("Redirecting to cuisine");
+      router.replace('/cuisine');
+      break;
+    default:
+      console.log("No valid role, redirecting to profile");
+      router.replace('/profile');
+  }
+}, [user, loading, initialCheckDone]);
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
       <ActivityIndicator size="large" />

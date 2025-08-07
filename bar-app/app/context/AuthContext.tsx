@@ -38,25 +38,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
 const refreshUserData = async (firebaseUser: FirebaseUser | null) => {
-  setLoading(true);
   try {
     if (firebaseUser) {
       const userDoc = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
       
       if (userDoc.exists()) {
+        const userData = userDoc.data();
         setUser({
           uid: firebaseUser.uid,
           email: firebaseUser.email || '',
-          role: userDoc.data().role as UserRole,
-          valide: userDoc.data().valide || false,
+          role: userData.role || null,
+          valide: userData.valide || false
         });
       } else {
-        // Si le document n'existe pas encore
+        // Nouvel utilisateur sans document utilisateur
         setUser({
           uid: firebaseUser.uid,
           email: firebaseUser.email || '',
           role: null,
-          valide: false,
+          valide: false
         });
       }
     } else {
@@ -67,7 +67,7 @@ const refreshUserData = async (firebaseUser: FirebaseUser | null) => {
     setUser(null);
   } finally {
     setLoading(false);
-    setInitialCheckDone(true);
+    if (!initialCheckDone) setInitialCheckDone(true);
   }
 };
 
