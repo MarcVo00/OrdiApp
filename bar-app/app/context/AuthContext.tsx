@@ -1,7 +1,6 @@
-// context/AuthContext.tsx
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { auth, db } from '../../firebase';
-import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
+import { User as FirebaseUser, onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
 
@@ -16,6 +15,7 @@ type AppUser = {
 type AuthContextType = {
   user: AppUser;
   loading: boolean;
+  initialCheckDone: boolean;
   setUser: (user: AppUser) => void;
   refreshUserData: () => Promise<void>;
   logout: () => Promise<void>;
@@ -24,6 +24,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
+  initialCheckDone: false,
   setUser: () => {},
   refreshUserData: async () => {},
   logout: async () => {},
@@ -32,31 +33,19 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser>(null);
   const [loading, setLoading] = useState(true);
+  const [initialCheckDone, setInitialCheckDone] = useState(false);
   const router = useRouter();
 
-  const refreshUserData = async () => {
-    setLoading(true);
-    const currentUser = auth.currentUser;
-    
-    if (currentUser) {
+  const refreshUserData = async (firebaseUser: FirebaseUser | null) => {
+    if (firebaseUser) {
       try {
-        const userDoc = await getDoc(doc(db, 'utilisateurs', currentUser.uid));
+        const userDoc = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
         
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setUser({
-            uid: currentUser.uid,
-            email: currentUser.email || '',
-            role: userData.role as UserRole,
-          });
-        } else {
-          // Si le document n'existe pas encore
-          setUser({
-            uid: currentUser.uid,
-            email: currentUser.email || '',
-            role: null,
-          });
-        }
+        setUser({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email || '',
+          role: userDoc.exists() ? (userDoc.data().role as UserRole) : null,
+        });
       } catch (error) {
         console.error("Error refreshing user data:", error);
         setUser(null);
@@ -65,11 +54,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
     }
     setLoading(false);
+    setInitialCheckDone(true);
   };
 
   const logout = async () => {
     try {
-      await auth.signOut();
+      await signOut(auth);
       setUser(null);
       router.replace('/login');
     } catch (error) {
@@ -79,12 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        await refreshUserData();
-      } else {
-        setUser(null);
-        setLoading(false);
-      }
+      await refreshUserData(firebaseUser);
     });
 
     return unsubscribe;
@@ -92,11 +77,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ 
-      user, 
-      loading, 
-      setUser, 
-      refreshUserData,
-      logout
+      user,
+      loading,
+      initialCheckDone,
+      setUser,
+      refreshUserData: () => refreshUserData(auth.currentUser),
+      logout,
     }}>
       {children}
     </AuthContext.Provider>

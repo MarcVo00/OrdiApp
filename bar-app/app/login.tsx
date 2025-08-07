@@ -4,10 +4,6 @@ import { useRouter } from 'expo-router';
 import { auth } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useAuth } from './context/AuthContext';
-import { getDoc, doc } from 'firebase/firestore';
-import { db } from '../firebase';
-import { UserRole } from './context/AuthContext';
-
 
 export default function Login() {
   const router = useRouter();
@@ -16,29 +12,28 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { setUser } = useAuth();
 
   const handleLogin = async () => {
-  setLoading(true);
-  try {
-    const response = await signInWithEmailAndPassword(auth, email, password);
-    const userDoc = await getDoc(doc(db, 'utilisateurs', response.user.uid));
-    
-    const role = userDoc.exists() ? userDoc.data().role as UserRole : null;
-    
-    setUser({
-      uid: response.user.uid,
-      email: response.user.email || '',
-      role: role
-    });
+    setLoading(true);
+    try {
+      const response = await signInWithEmailAndPassword(auth, email, password);
+      await refreshUserData();
+      router.replace('/');
+    } catch (error: any) {
+      let errorMessage = "Échec de la connexion";
+      if (error.code === 'auth/invalid-email') {
+        errorMessage = "Email invalide";
+      } else if (error.code === 'auth/user-not-found') {
+        errorMessage = "Utilisateur non trouvé";
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = "Mot de passe incorrect";
+      }
+      Alert.alert('Erreur', errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    router.replace('/'); // La redirection sera gérée par index.tsx
-  } catch (error) {
-    Alert.alert('Erreur', 'Identifiants incorrects');
-  } finally {
-    setLoading(false);
-  }
-};
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Connexion</Text>
@@ -49,6 +44,7 @@ export default function Login() {
         style={styles.input}
         autoCapitalize="none"
         keyboardType="email-address"
+        autoComplete="email"
       />
       <TextInput
         placeholder="Mot de passe"
@@ -56,13 +52,18 @@ export default function Login() {
         onChangeText={setPassword}
         secureTextEntry
         style={styles.input}
+        autoComplete="password"
       />
       {loading ? (
         <ActivityIndicator size="large" color="#0000ff" />
       ) : (
         <>
           <Button title="Se connecter" onPress={handleLogin} />
-          <Button title="Créer un compte" onPress={() => router.push('/register')} />
+          <Button 
+            title="Créer un compte" 
+            onPress={() => router.push('/register')} 
+            color="#888"
+          />
         </>
       )}
     </View>
@@ -70,13 +71,25 @@ export default function Login() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24 },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 24 },
+  container: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    padding: 24,
+    backgroundColor: '#fff',
+  },
+  title: { 
+    fontSize: 24, 
+    fontWeight: 'bold', 
+    marginBottom: 24,
+    textAlign: 'center',
+    color: '#333',
+  },
   input: {
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 6,
     padding: 12,
     marginBottom: 16,
+    backgroundColor: '#fff',
   },
 });
