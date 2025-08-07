@@ -24,6 +24,7 @@ export default function Login() {
       setLoading(false);
       const user = response.user;
       const userDoc = await getDoc(doc(db, 'utilisateurs', user.email || user.uid));
+      console.log('User document snapshot:', userDoc);
       if (userDoc.exists()) {
         console.log("j'existe")
         console.log('User data:', userDoc.data());
