@@ -19,6 +19,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import ProtectedRoute from './protectedRoute';
+import { useAuth } from './context/AuthContext';
 
 
 
@@ -36,6 +37,8 @@ const STATUTS = ['en_attente', 'en_preparation', 'pret'];
 
 
 export default function Serveur() {
+  const { user } = useAuth();
+
   const [commandes, setCommandes] = useState<Commande[]>([]);
   const [filtre, setFiltre] = useState<'toutes' | 'en_attente' | 'en_preparation' | 'pret'>('toutes');
 
