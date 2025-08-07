@@ -14,6 +14,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [role, setRole] = useState<'admin' | 'serveur' | 'cuisine' | null>(null);
   const authFirebase = auth;
 
   const handleLogin = async () => {
@@ -23,12 +24,17 @@ export default function Login() {
       setLoading(false);
       const user = response.user;
       const userDoc = await getDoc(doc(db, 'utilisateurs', user.uid));
+      console.log('User document:', userDoc.data());
+      console.log('User role:', userDoc.data()?.role);
       if (userDoc.exists()) {
-        if (userDoc.data().role === 'admin') {
+        if (userDoc.data()?.role === 'admin') {
+          setRole('admin');
           router.replace('/admin');
-        } else if (userDoc.data().role === 'serveur') {
+        } else if (userDoc.data()?.role === 'serveur') {
+          setRole('serveur');
           router.replace('/serveur');
-        } else if (userDoc.data().role === 'cuisine') {
+        } else if (userDoc.data()?.role === 'cuisine') {
+          setRole('cuisine');
           router.replace('/cuisine');
         }
       }
@@ -40,6 +46,11 @@ export default function Login() {
       setLoading(false);
     }
   };
+  useEffect(() => {
+    if (role) {
+      console.log('User role after login:', role);
+    }
+  }, [role]);
 
   return (
     <View style={styles.container}>
