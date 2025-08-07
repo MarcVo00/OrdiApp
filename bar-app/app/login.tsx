@@ -30,11 +30,15 @@ export default function Login() {
       console.log('Utilisateur connecté:', firebaseUser.email, 'Rôle:', role);
       // Redirection après connexion
       if (role === 'admin') {
-        router.push('/admin');
+        console.log('Redirection vers admin');
+        router.replace('/admin');
+        console.log('je suis encore dans la redirection');
       } else if (role === 'serveur') {
-        router.push('/serveur');
+        console.log('Redirection vers serveur');
+        router.replace('/serveur');
       } else if (role === 'cuisine') {
-        router.push('/cuisine');
+        console.log('Redirection vers cuisine');
+        router.replace('/cuisine');
       }
       
     } catch (error: any) {
