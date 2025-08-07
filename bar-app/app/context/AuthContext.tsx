@@ -10,6 +10,7 @@ type AppUser = {
   uid: string;
   email: string;
   role: UserRole;
+  valide: boolean;
 } | null;
 
 type AuthContextType = {
@@ -36,26 +37,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [initialCheckDone, setInitialCheckDone] = useState(false);
   const router = useRouter();
 
-  const refreshUserData = async (firebaseUser: FirebaseUser | null) => {
+const refreshUserData = async (firebaseUser: FirebaseUser | null) => {
+  setLoading(true);
+  try {
     if (firebaseUser) {
-      try {
-        const userDoc = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
-        
+      const userDoc = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
+      
+      if (userDoc.exists()) {
         setUser({
           uid: firebaseUser.uid,
           email: firebaseUser.email || '',
-          role: userDoc.exists() ? (userDoc.data().role as UserRole) : null,
+          role: userDoc.data().role as UserRole,
+          valide: userDoc.data().valide || false,
         });
-      } catch (error) {
-        console.error("Error refreshing user data:", error);
-        setUser(null);
+      } else {
+        // Si le document n'existe pas encore
+        setUser({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email || '',
+          role: null,
+          valide: false,
+        });
       }
     } else {
       setUser(null);
     }
+  } catch (error) {
+    console.error("Error refreshing user data:", error);
+    setUser(null);
+  } finally {
     setLoading(false);
     setInitialCheckDone(true);
-  };
+  }
+};
 
   const logout = async () => {
     try {

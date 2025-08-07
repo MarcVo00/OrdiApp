@@ -13,7 +13,7 @@ export default function Index() {
 
     if (!user) {
       router.replace('/login');
-    } else {
+    } else if (user.role) {
       switch(user.role) {
         case 'admin': 
           router.replace('/admin');
@@ -27,6 +27,8 @@ export default function Index() {
         default:
           router.replace('/profile'); // Page par défaut si rôle non défini
       }
+    } else {
+      router.replace('/profile'); // Redirection vers le profil si l'utilisateur est connecté
     }
   }, [user, loading, initialCheckDone]);
 
