@@ -4,20 +4,24 @@ import { userContext } from './login';
 import { ActivityIndicator, View } from 'react-native';
 
 export default function Index() {
-  const { uid, email, role } = userContext;
   const router = useRouter();
 
   useEffect(() => {
-    if (uid === null) {
-      router.replace('/login');
-    } else if (role === 'admin') {
-      router.replace('/admin'); // ou '/produits' selon ta page admin principale
-    } else if (role === 'serveur') {
-      router.replace('/serveur');
-    } else if (role === 'cuisine') {
-      router.replace('/cuisine');
-    }
-  }, [uid, role]);
+    // Vérifier périodiquement le rôle car le contexte n'est pas réactif
+    const interval = setInterval(() => {
+      if (userContext.uid === null) {
+        router.replace('/login');
+      } else if (userContext.role === 'admin') {
+        router.replace('/admin');
+      } else if (userContext.role === 'serveur') {
+        router.replace('/serveur');
+      } else if (userContext.role === 'cuisine') {
+        router.replace('/cuisine');
+      }
+    }, 500); // Vérifie toutes les 500ms
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

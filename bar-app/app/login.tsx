@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from './context/AuthContext';
 import {auth, db} from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { getDoc, doc } from 'firebase/firestore';
@@ -25,7 +24,6 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [role, setRole] = useState<'admin' | 'serveur' | 'cuisine' | null>(null);
 
   const authFirebase = auth;
 
@@ -36,23 +34,20 @@ export default function Login() {
       setLoading(false);
       
       const user = response.user;
-      setRole(userContext.role || null);
+      console.log('User logged in:', userContext);
+      const userDoc = await getDoc(doc(db, 'utilisateurs', user.uid));
+      const userData = userDoc.data();
       userContext.uid = user.uid;
       userContext.email = user.email || '';
-      console.log('User logged in:', userContext);
-      userContext.role = role;
-      const userDoc = await getDoc(doc(db, 'utilisateurs', user.uid));
+      userContext.role = userData?.role || null;
       console.log('User document:', userDoc.data());
       console.log('User role:', userDoc.data()?.role);
       if (userDoc.exists()) {
         if (userDoc.data()?.role === 'admin') {
-          setRole('admin');
           router.replace('/admin');
         } else if (userDoc.data()?.role === 'serveur') {
-          setRole('serveur');
           router.replace('/serveur');
         } else if (userDoc.data()?.role === 'cuisine') {
-          setRole('cuisine');
           router.replace('/cuisine');
         }
       }
@@ -64,12 +59,6 @@ export default function Login() {
       setLoading(false);
     }
   };
-  useEffect(() => {
-    if (role) {
-      console.log('User role after login:', role);
-    }
-  }, [role]);
-
 
   return (
     <View style={styles.container}>
