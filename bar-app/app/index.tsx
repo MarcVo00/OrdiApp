@@ -1,28 +1,31 @@
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
+import { userContext } from './login';
 import { ActivityIndicator, View } from 'react-native';
-import { useAuth } from './context/AuthContext';
 
 export default function Index() {
   const router = useRouter();
-  const { user } = useAuth();
 
   useEffect(() => {
-    if (user === null) {
-      router.replace('/login');
-    } else if (user.role) {
-      switch(user.role) {
-        case 'admin': router.replace('/admin'); break;
-        case 'serveur': router.replace('/serveur'); break;
-        case 'cuisine': router.replace('/cuisine'); break;
-        default: router.replace('/login');
+    // Vérifier périodiquement le rôle car le contexte n'est pas réactif
+    const interval = setInterval(() => {
+      if (userContext.uid === null) {
+        router.replace('/login');
+      } else if (userContext.role === 'admin') {
+        router.replace('/admin');
+      } else if (userContext.role === 'serveur') {
+        router.replace('/serveur');
+      } else if (userContext.role === 'cuisine') {
+        router.replace('/cuisine');
       }
-    }
-  }, [user]);
+    }, 500); // Vérifie toutes les 500ms
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <ActivityIndicator size="large" />
+      <ActivityIndicator />
     </View>
   );
 }

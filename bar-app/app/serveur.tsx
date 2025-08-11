@@ -18,8 +18,7 @@ import {
   DocumentData,
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import ProtectedRoute from './protectedRoute';
-import { useAuth } from './context/AuthContext';
+
 
 
 
@@ -37,7 +36,6 @@ const STATUTS = ['en_attente', 'en_preparation', 'pret'];
 
 
 export default function Serveur() {
-  const { user } = useAuth();
 
   const [commandes, setCommandes] = useState<Commande[]>([]);
   const [filtre, setFiltre] = useState<'toutes' | 'en_attente' | 'en_preparation' | 'pret'>('toutes');
@@ -84,7 +82,6 @@ export default function Serveur() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={['admin', 'serveur']}>
     <View style={styles.container}>
       <Text style={styles.title}>Interface Serveur</Text>
       <View style={styles.filtres}>
@@ -139,7 +136,6 @@ export default function Serveur() {
         )}
       />
     </View>
-    </ProtectedRoute>
   );
 }
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, Alert, TextInput, Pressable } from 'react-native';
 import { collection, onSnapshot, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import ProtectedRoute from './protectedRoute';
+//import ProtectedRoute from './protectedRoute';
 import { useAuth } from './context/AuthContext';
 
 type Utilisateur = {
@@ -119,7 +119,6 @@ export default function Admin() {
   });
 
   return (
-    <ProtectedRoute allowedRoles={['admin']}>
       <View style={styles.container}>
         <Text style={styles.title}>Gestion des utilisateurs</Text>
         
@@ -200,6 +199,5 @@ export default function Admin() {
           )}
         />
       </View>
-    </ProtectedRoute>
   );
 }
