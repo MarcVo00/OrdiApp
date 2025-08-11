@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-import { useAuth } from './context/AuthContext';
-import { useRouter } from 'expo-router';
-=======
->>>>>>> 344c5644fff6706a2088a6ed360f7d08f2ab9a9d
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
@@ -15,12 +10,6 @@ export default function ProtectedRoute({
   allowedRoles: ('admin' | 'serveur' | 'cuisine')[];
   children: React.ReactNode;
 }) {
-<<<<<<< HEAD
-  const { user } = useAuth();
-  
-  if (!user || (user.role && !allowedRoles.includes(user.role))) {
-    return null; // La redirection est gérée par index.tsx
-=======
   const { user, loading, logout } = useAuth();
   const router = useRouter();
 
@@ -66,7 +55,6 @@ export default function ProtectedRoute({
 
   if (!user || !user.valide || (user.role && !allowedRoles.includes(user.role))) {
     return null;
->>>>>>> 344c5644fff6706a2088a6ed360f7d08f2ab9a9d
   }
 
   return <>{children}</>;

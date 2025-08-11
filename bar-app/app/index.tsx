@@ -5,22 +5,6 @@ import { useAuth } from './context/AuthContext';
 
 export default function Index() {
   const router = useRouter();
-<<<<<<< HEAD
-  const { user } = useAuth();
-
-  useEffect(() => {
-    if (user === null) {
-      router.replace('/login');
-    } else if (user.role) {
-      switch(user.role) {
-        case 'admin': router.replace('/admin'); break;
-        case 'serveur': router.replace('/serveur'); break;
-        case 'cuisine': router.replace('/cuisine'); break;
-        default: router.replace('/login');
-      }
-    }
-  }, [user]);
-=======
   const { user, loading } = useAuth();
 
   useEffect(() => {
@@ -70,7 +54,6 @@ export default function Index() {
     // Si l'utilisateur n'est pas connecté, on le redirige vers la page de login
     router.replace('/login');
 
->>>>>>> 344c5644fff6706a2088a6ed360f7d08f2ab9a9d
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

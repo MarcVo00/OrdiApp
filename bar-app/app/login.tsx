@@ -22,30 +22,6 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-<<<<<<< HEAD
-  setLoading(true);
-  try {
-    const response = await signInWithEmailAndPassword(auth, email, password);
-    const firebaseUser = response.user;
-    const userDoc = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
-    const role = userDoc.exists() ? (userDoc.data().role as 'admin' | 'serveur' | 'cuisine') : null;
-
-    setUser({
-      uid: firebaseUser.uid,
-      email: firebaseUser.email || '',
-      role: role,
-    });
-    
-    // Redirection simple vers la racine
-    router.replace('/');
-    
-  } catch (error: any) {
-    Alert.alert('Erreur de connexion', error.message);
-  } finally {
-    setLoading(false);
-  }
-};
-=======
     if (!email || !password) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs');
       return;
@@ -94,7 +70,6 @@ export default function Login() {
       setLoading(false);
     }
   };
->>>>>>> 344c5644fff6706a2088a6ed360f7d08f2ab9a9d
 
   return (
     <View style={styles.container}>
