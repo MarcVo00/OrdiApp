@@ -15,38 +15,28 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    setLoading(true);
-    try {
-      const response = await signInWithEmailAndPassword(auth, email, password);
-      const firebaseUser = response.user;
-      const userDoc = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
-      const role = userDoc.exists() ? (userDoc.data().role as 'admin' | 'serveur' | 'cuisine') : null;
+  setLoading(true);
+  try {
+    const response = await signInWithEmailAndPassword(auth, email, password);
+    const firebaseUser = response.user;
+    const userDoc = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
+    const role = userDoc.exists() ? (userDoc.data().role as 'admin' | 'serveur' | 'cuisine') : null;
 
-      setUser({
-        uid: firebaseUser.uid,
-        email: firebaseUser.email || '',
-        role: role,
-      });
-      console.log('Utilisateur connecté:', firebaseUser.email, 'Rôle:', role);
-      // Redirection après connexion
-      if (role === 'admin') {
-        console.log('Redirection vers admin');
-        router.replace('/admin');
-        console.log('je suis encore dans la redirection');
-      } else if (role === 'serveur') {
-        console.log('Redirection vers serveur');
-        router.replace('/serveur');
-      } else if (role === 'cuisine') {
-        console.log('Redirection vers cuisine');
-        router.replace('/cuisine');
-      }
-      
-    } catch (error: any) {
-      Alert.alert('Erreur de connexion', error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setUser({
+      uid: firebaseUser.uid,
+      email: firebaseUser.email || '',
+      role: role,
+    });
+    
+    // Redirection simple vers la racine
+    router.replace('/');
+    
+  } catch (error: any) {
+    Alert.alert('Erreur de connexion', error.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <View style={styles.container}>
