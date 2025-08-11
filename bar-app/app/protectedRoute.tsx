@@ -10,10 +10,18 @@ export default function ProtectedRoute({
   allowedRoles: ('admin' | 'serveur' | 'cuisine')[];
   children: React.ReactNode;
 }) {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, resetUser } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.log("ProtectedRoute timeout - redirecting to login");
+        resetUser();
+        router.replace('/login');
+      }
+    }, 1000);
+
     if (loading) return;
 
     if (!user) {
@@ -27,7 +35,6 @@ export default function ProtectedRoute({
     }
 
     if (user.role && !allowedRoles.includes(user.role)) {
-      // Rediriger vers l'interface appropriée
       switch (user.role) {
         case 'admin': router.replace('/admin'); break;
         case 'serveur': router.replace('/serveur'); break;
@@ -35,6 +42,8 @@ export default function ProtectedRoute({
         default: logout();
       }
     }
+
+    return () => clearTimeout(timeoutId);
   }, [user, loading, allowedRoles]);
 
   if (loading) {
@@ -46,7 +55,7 @@ export default function ProtectedRoute({
   }
 
   if (!user || !user.valide || (user.role && !allowedRoles.includes(user.role))) {
-    return null; // La redirection est déjà gérée
+    return null;
   }
 
   return <>{children}</>;

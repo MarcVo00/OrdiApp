@@ -18,6 +18,7 @@ type AuthContextType = {
   loading: boolean;
   logout: () => Promise<void>;
   refreshUser: (firebaseUser?: FirebaseUser | null) => Promise<AppUser | undefined>;
+  resetUser: () => void; // Nouvelle méthode
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -25,6 +26,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   logout: async () => {},
   refreshUser: async () => undefined,
+  resetUser: () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -32,19 +34,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  const resetUser = () => {
+    setUser(null);
+    setLoading(false);
+  };
+
   const refreshUser = async (firebaseUser?: FirebaseUser | null) => {
     try {
       const currentUser = firebaseUser || auth.currentUser;
       
       if (!currentUser) {
-        setUser(null);
+        resetUser();
         return;
       }
 
       const userDoc = await getDoc(doc(db, 'utilisateurs', currentUser.uid));
       
       if (!userDoc.exists()) {
-        setUser(null);
+        resetUser();
         return;
       }
 
@@ -56,19 +63,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       setUser(userData);
+      setLoading(false);
       return userData;
     } catch (error) {
       console.error("Error refreshing user:", error);
-      setUser(null);
-    } finally {
-      setLoading(false);
+      resetUser();
     }
   };
 
   const logout = async () => {
     try {
       await signOut(auth);
-      setUser(null);
+      resetUser();
       router.replace('/login');
     } catch (error) {
       console.error("Logout error:", error);
@@ -76,15 +82,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Set timeout for 1000ms
+      timeoutId = setTimeout(() => {
+        if (loading) {
+          console.log("Timeout reached - redirecting to login");
+          resetUser();
+          router.replace('/login');
+        }
+      }, 1000);
+
       await refreshUser(firebaseUser);
+      clearTimeout(timeoutId);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, logout, refreshUser, resetUser }}>
       {children}
     </AuthContext.Provider>
   );
