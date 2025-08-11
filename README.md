@@ -108,8 +108,8 @@ firebase deploy
 | Rôle     | Accès autorisé            |
 |----------|----------------------------|
 | admin    | `/admin`, `/produits`, `/stats`, `/register` |
-| serveur  | `/serveur`, `/cuisine`     |
-| cuisine  | `/cuisine` uniquement      |
+| serveur  | `/serveur`, `/cuisine`, `/register`     |
+| cuisine  | `/cuisine`, `/register`      |
 
 ---
 

@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       const currentUser = firebaseUser || auth.currentUser;
+      console.log("Refreshing user:", currentUser);
       
       if (!currentUser) {
         resetUser();
@@ -53,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await new Promise(resolve => setTimeout(resolve, 100));
 
       const userDoc = await getDoc(doc(db, 'utilisateurs', currentUser.uid));
-      
+
       console.log("User document fetched:", userDoc.exists(), userDoc.data());
       
       if (!userDoc.exists()) {
