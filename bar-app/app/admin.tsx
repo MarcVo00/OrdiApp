@@ -1,52 +1,38 @@
-// app/admin.tsx
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, Alert, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { collection, onSnapshot, updateDoc, doc, deleteDoc } from 'firebase/firestore';
-import { useAuth } from './context/AuthContext';
-import { useRouter } from 'expo-router';
+import { db } from '../firebase';
 import ProtectedRoute from './components/protectedRoute';
 import NavBar from './components/NavBar';
-import { db } from '../firebase'; // Assurez-vous que le chemin est correct
+import { useAuth } from './context/AuthContext';
 
-interface Utilisateur {
+// Types
+export type Role = 'admin' | 'serveur' | 'cuisine' | null;
+
+type Utilisateur = {
   id: string;
   nom: string;
   prenom: string;
   email: string;
-  role: 'admin' | 'serveur' | 'cuisine' | null;
+  role: Role;
   valide: boolean;
-}
+};
 
 export default function Admin() {
-  const router = useRouter();
-  const { user, loading } = useAuth();
-
-  useEffect(() => {
-    if (loading) return;
-    if (!user) {
-      router.replace('/login');
-      return;
-    }
-    if (user.role !== 'admin') {
-      // Rediriger l’utilisateur non admin vers sa page
-      if (user.role === 'serveur') router.replace('/serveur');
-      else if (user.role === 'cuisine') router.replace('/cuisine');
-      else router.replace('/login');
-    }
-  }, [user, loading]);
-
+  const { user: currentUser } = useAuth();
   const [utilisateurs, setUtilisateurs] = useState<Utilisateur[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Utilisateur>>({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') return;
     const unsub = onSnapshot(collection(db, 'utilisateurs'), (snapshot) => {
       const data = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as Utilisateur[];
       setUtilisateurs(data);
+      setLoading(false);
     });
     return () => unsub();
-  }, [user]);
+  }, []);
 
   const startEditing = (u: Utilisateur) => {
     setEditingId(u.id);
@@ -54,23 +40,24 @@ export default function Admin() {
   };
 
   const handleUpdate = async (id: string) => {
-    if (!editForm.role && editForm.role !== null) {
-      Alert.alert('Erreur', 'Le rôle est obligatoire (ou null).');
-      return;
-    }
     try {
       await updateDoc(doc(db, 'utilisateurs', id), editForm);
       setEditingId(null);
       Alert.alert('Succès', 'Utilisateur mis à jour');
-    } catch (e) {
-      Alert.alert('Erreur', "Échec de la mise à jour");
+    } catch (e: any) {
+      Alert.alert('Erreur', e?.message ?? "Échec de la mise à jour");
     }
   };
 
   const handleDelete = (id: string) => {
+    if (currentUser?.uid === id) {
+      Alert.alert('Action bloquée', "Vous ne pouvez pas supprimer votre propre compte.");
+      return;
+    }
+
     Alert.alert(
       'Confirmer la suppression',
-      'Voulez-vous vraiment supprimer cet utilisateur de la base de données ?',
+      "Supprimer l'utilisateur de la base de données ?",
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -79,10 +66,9 @@ export default function Admin() {
           onPress: async () => {
             try {
               await deleteDoc(doc(db, 'utilisateurs', id));
-              Alert.alert('Succès', 'Utilisateur supprimé de la base de données');
-            } catch (error) {
-              console.error('Erreur suppression Firestore:', error);
-              Alert.alert('Erreur', 'Échec de la suppression dans Firestore');
+              Alert.alert('Succès', 'Utilisateur supprimé de la base de données.');
+            } catch (e: any) {
+              Alert.alert('Erreur', e?.message ?? "Échec de la suppression en base");
             }
           },
         },
@@ -90,70 +76,91 @@ export default function Admin() {
     );
   };
 
-  if (loading || !user || user.role !== 'admin') {
+  if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator />
-      </View>
+      <ProtectedRoute allowedRoles={['admin']}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator />
+        </View>
+      </ProtectedRoute>
     );
   }
 
   return (
     <ProtectedRoute allowedRoles={['admin']}>
-    <View style={styles.container}>
-      <Text style={styles.title}>Gestion des utilisateurs</Text>
+      <View style={styles.container}>
+        <Text style={styles.title}>Gestion des utilisateurs</Text>
 
-      <FlatList
-        data={utilisateurs}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            {editingId === item.id ? (
-              <>
-                <TextInput style={styles.input} value={editForm.nom ?? ''} onChangeText={(v) => setEditForm({ ...editForm, nom: v })} placeholder="Nom" />
-                <TextInput style={styles.input} value={editForm.prenom ?? ''} onChangeText={(v) => setEditForm({ ...editForm, prenom: v })} placeholder="Prénom" />
+        <FlatList
+          data={utilisateurs}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              {editingId === item.id ? (
+                <>
+                  <TextInput
+                    style={styles.input}
+                    value={editForm.prenom ?? ''}
+                    onChangeText={(v) => setEditForm({ ...editForm, prenom: v })}
+                    placeholder="Prénom"
+                  />
+                  <TextInput
+                    style={styles.input}
+                    value={editForm.nom ?? ''}
+                    onChangeText={(v) => setEditForm({ ...editForm, nom: v })}
+                    placeholder="Nom"
+                  />
 
-                <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginVertical: 10 }}>
-                  {(['admin', 'serveur', 'cuisine'] as const).map((role) => (
-                    <Pressable key={role} onPress={() => setEditForm({ ...editForm, role })} style={[styles.button, editForm.role === role && { backgroundColor: '#333' }]}>
-                      <Text style={styles.buttonText}>{role}</Text>
-                    </Pressable>
-                  ))}
-                  <Pressable onPress={() => setEditForm({ ...editForm, role: null })} style={[styles.button, editForm.role === null && { backgroundColor: '#333' }]}>
-                    <Text style={styles.buttonText}>aucun</Text>
-                  </Pressable>
-                </View>
-
-                <Pressable style={[styles.button, styles.saveButton]} onPress={() => handleUpdate(item.id)}>
-                  <Text style={styles.buttonText}>Enregistrer</Text>
-                </Pressable>
-              </>
-            ) : (
-              <>
-                <View style={styles.header}>
-                  <Text style={styles.userName}>{item.prenom} {item.nom}</Text>
-                  <View style={{ flexDirection: 'row' }}>
-                    <Pressable style={[styles.button, styles.editButton, { marginRight: 6 }]} onPress={() => startEditing(item)}>
-                      <Text style={styles.buttonText}>✏️</Text>
-                    </Pressable>
-                    <Pressable style={[styles.button, styles.deleteButton]} onPress={() => handleDelete(item.id)}>
-                      <Text style={styles.buttonText}>🗑️</Text>
+                  {/* Sélecteur de rôle */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginVertical: 10 }}>
+                    {(['admin', 'serveur', 'cuisine'] as const).map((role) => (
+                      <Pressable key={role} onPress={() => setEditForm({ ...editForm, role })} style={[styles.button, editForm.role === role && { backgroundColor: '#333' }]}>
+                        <Text style={styles.buttonText}>{role}</Text>
+                      </Pressable>
+                    ))}
+                    <Pressable onPress={() => setEditForm({ ...editForm, role: null })} style={[styles.button, editForm.role === null && { backgroundColor: '#333' }]}>
+                      <Text style={styles.buttonText}>aucun</Text>
                     </Pressable>
                   </View>
-                </View>
-                <Text>{item.email}</Text>
-                <View style={[styles.roleBadge, item.role === 'admin' && styles.adminBadge, item.role === 'serveur' && styles.serveurBadge, item.role === 'cuisine' && styles.cuisineBadge]}>
-                  <Text style={{ color: 'white' }}>{item.role ?? 'aucun'}</Text>
-                </View>
-                <Text>Statut : {item.valide ? 'Validé' : 'En attente'}</Text>
-              </>
-            )}
-          </View>
-        )}
-      />
-    </View>
-    <NavBar />
-  </ProtectedRoute>
+
+                  {/* Toggle validation */}
+                  <Pressable
+                    style={[styles.button, { backgroundColor: editForm.valide ? '#4CAF50' : '#9E9E9E' }]}
+                    onPress={() => setEditForm({ ...editForm, valide: !editForm.valide })}
+                  >
+                    <Text style={styles.buttonText}>{editForm.valide ? 'Validé' : 'En attente'}</Text>
+                  </Pressable>
+
+                  <Pressable style={[styles.button, styles.saveButton]} onPress={() => handleUpdate(item.id)}>
+                    <Text style={styles.buttonText}>Enregistrer</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <View style={styles.header}>
+                    <Text style={styles.userName}>{item.prenom} {item.nom}</Text>
+                    <View style={{ flexDirection: 'row' }}>
+                      <Pressable style={[styles.button, styles.editButton, { marginRight: 6 }]} onPress={() => startEditing(item)}>
+                        <Text style={styles.buttonText}>✏️</Text>
+                      </Pressable>
+                      <Pressable style={[styles.button, styles.deleteButton]} onPress={() => handleDelete(item.id)}>
+                        <Text style={styles.buttonText}>🗑️</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                  <Text>{item.email}</Text>
+                  <View style={[styles.roleBadge, item.role === 'admin' && styles.adminBadge, item.role === 'serveur' && styles.serveurBadge, item.role === 'cuisine' && styles.cuisineBadge, item.role === null && styles.noneBadge]}>
+                    <Text style={{ color: 'white' }}>{item.role ?? 'aucun'}</Text>
+                  </View>
+                  <Text>Statut : {item.valide ? 'Validé' : 'En attente'}</Text>
+                </>
+              )}
+            </View>
+          )}
+        />
+      </View>
+      <NavBar />
+    </ProtectedRoute>
   );
 }
 
@@ -173,4 +180,5 @@ const styles = StyleSheet.create({
   adminBadge: { backgroundColor: '#FF5722' },
   serveurBadge: { backgroundColor: '#673AB7' },
   cuisineBadge: { backgroundColor: '#009688' },
+  noneBadge: { backgroundColor: '#9E9E9E' },
 });
