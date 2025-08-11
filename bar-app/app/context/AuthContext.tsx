@@ -42,12 +42,14 @@ const refreshUserData = async (firebaseUser: FirebaseUser | null) => {
     if (firebaseUser) {
       const userDoc = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
       
-      setUser({
+      const userData = {
         uid: firebaseUser.uid,
         email: firebaseUser.email || '',
         role: userDoc.exists() ? (userDoc.data().role as UserRole) : null,
         valide: userDoc.exists() ? userDoc.data().valide : false
-      });
+      };
+      
+      setUser(userData);
     } else {
       setUser(null);
     }

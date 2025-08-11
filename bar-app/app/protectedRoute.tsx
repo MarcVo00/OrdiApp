@@ -14,24 +14,22 @@ export default function ProtectedRoute({
   const router = useRouter();
 
   useEffect(() => {
-    if (!initialCheckDone || loading) return;
+  if (!initialCheckDone || loading) return;
 
-    if (!user) {
-      // Si non connecté, rediriger vers login
-      router.replace('/login');
-    } else if (!user.valide) {
-      // Si compte non validé
-      router.replace('/pending');
-    } else if (user.role && !allowedRoles.includes(user.role)) {
-      // Si rôle non autorisé
-      switch(user.role) {
-        case 'admin': router.replace('/admin'); break;
-        case 'serveur': router.replace('/serveur'); break;
-        case 'cuisine': router.replace('/cuisine'); break;
-        default: router.replace('/profile');
-      }
+  if (!user) {
+    router.replace('/login');
+  } else if (!user.valide) {
+    router.replace('/pending');
+  } else if (user.role && !allowedRoles.includes(user.role)) {
+    // Rediriger vers l'interface appropriée selon le rôle
+    switch(user.role) {
+      case 'admin': router.replace('/admin'); break;
+      case 'serveur': router.replace('/serveur'); break;
+      case 'cuisine': router.replace('/cuisine'); break;
+      default: router.replace('/profile');
     }
-  }, [user, loading, initialCheckDone, allowedRoles]);
+  }
+}, [user, loading, initialCheckDone, allowedRoles]);
 
   if (loading || !initialCheckDone) {
     return (

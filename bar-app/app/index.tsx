@@ -5,20 +5,19 @@ import { useAuth } from './context/AuthContext';
 
 export default function Index() {
   const router = useRouter();
-  const { user, loading, initialCheckDone } = useAuth(); // Ajoutez initialCheckDone dans votre AuthContext
+  const { user, loading, initialCheckDone } = useAuth();
 
   useEffect(() => {
     if (!initialCheckDone || loading) return;
-
+    
+    // Seulement pour le premier chargement de l'app
     if (!user) {
       router.replace('/login');
-    } else if (!user.valide) {
-      router.replace('/pending');
     } else {
-      // Laissez le ProtectedRoute gérer la redirection en fonction du rôle
+      // Laisser le ProtectedRoute gérer la suite
       router.replace('/profile');
     }
-  }, [user, loading, initialCheckDone]);
+  }, []); // Supprimez les dépendances pour que cela ne s'exécute qu'une fois
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

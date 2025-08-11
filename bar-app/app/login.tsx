@@ -7,19 +7,30 @@ import { useAuth } from './context/AuthContext';
 
 export default function Login() {
   const router = useRouter();
-  const { refreshUserData } = useAuth();
+  const { refreshUserData, user } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
-    setLoading(true);
-    try {
-      const response = await signInWithEmailAndPassword(auth, email, password);
-      await refreshUserData();
-      router.replace('/');
-    } catch (error: any) {
+const handleLogin = async () => {
+  setLoading(true);
+  try {
+    const response = await signInWithEmailAndPassword(auth, email, password);
+    await refreshUserData();
+    
+    // Rediriger directement vers la page appropriée
+    if (!user?.valide) {
+      router.replace('/pending');
+    } else {
+      switch(user?.role) {
+        case 'admin': router.replace('/admin'); break;
+        case 'serveur': router.replace('/serveur'); break;
+        case 'cuisine': router.replace('/cuisine'); break;
+        default: router.replace('/profile');
+      }
+    }
+  } catch (error: any) {
       let errorMessage = "Échec de la connexion";
       if (error.code === 'auth/invalid-email') {
         errorMessage = "Email invalide";
@@ -29,10 +40,10 @@ export default function Login() {
         errorMessage = "Mot de passe incorrect";
       }
       Alert.alert('Erreur', errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
+      } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <View style={styles.container}>
