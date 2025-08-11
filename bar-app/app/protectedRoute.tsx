@@ -10,14 +10,13 @@ export default function ProtectedRoute({
   allowedRoles: ('admin' | 'serveur' | 'cuisine')[];
   children: React.ReactNode;
 }) {
-  const { user, loading, logout, resetUser } = useAuth();
+  const { user, loading, logout } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (loading) {
         console.log("ProtectedRoute timeout - redirecting to login");
-        resetUser();
         router.replace('/login');
       }
     }, 1000);

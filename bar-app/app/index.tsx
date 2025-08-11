@@ -5,13 +5,12 @@ import { useAuth } from './context/AuthContext';
 
 export default function Index() {
   const router = useRouter();
-  const { user, loading, resetUser } = useAuth();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (loading) {
         console.log("Timeout reached - redirecting to login");
-        resetUser();
         router.replace('/login');
       }
     }, 1000);
@@ -25,7 +24,7 @@ export default function Index() {
     }
 
     return () => clearTimeout(timeoutId);
-  }, [loading, resetUser, router]);
+  }, [loading, router]);
     // Seulement pour le premier chargement de l'app et enlever les informations de l'utilisateur
     // Si l'utilisateur est déjà connecté, on le redirige vers la page appropriée
     if (loading) return;
