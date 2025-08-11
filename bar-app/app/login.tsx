@@ -22,16 +22,19 @@ export default function Login() {
     setSubmitting(true);
     try {
       const profile = await login(email.trim().toLowerCase(), password);
+      if (profile.valide) {
+        return;
+      } else {
+        router.replace('/pending');
+      }
       // Redirection selon le rôle
-      if (profile.valide){
+     
         if (profile.role === 'admin') router.replace('/admin');
         else if (profile.role === 'serveur') router.replace('/serveur');
         else if (profile.role === 'cuisine') router.replace('/cuisine');
         else router.replace('/');
-      } else {
-        router.replace('/pending');
       }
-    } catch (e: any) {
+       catch (e: any) {
       Alert.alert('Connexion impossible', e?.message ?? 'Erreur inconnue');
     } finally {
       setSubmitting(false);
