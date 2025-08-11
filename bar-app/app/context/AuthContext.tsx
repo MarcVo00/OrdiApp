@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = async (firebaseUser?: FirebaseUser | null) => {
     try {
-      setLoading(true); // Ajoutez cette ligne
+      setLoading(true);
       const currentUser = firebaseUser || auth.currentUser;
       
       if (!currentUser) {
@@ -49,7 +49,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
+      // Force un délai minimal pour éviter les conflits
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       const userDoc = await getDoc(doc(db, 'utilisateurs', currentUser.uid));
+      
+      console.log("User document fetched:", userDoc.exists(), userDoc.data());
       
       if (!userDoc.exists()) {
         resetUser();
@@ -59,14 +64,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData = {
         uid: currentUser.uid,
         email: currentUser.email || '',
-        role: userDoc.data().role as UserRole,
-        valide: userDoc.data().valide as boolean,
+        role: userDoc.data().role,
+        valide: userDoc.data().valide
       };
 
+      // Vérification cruciale avant mise à jour
+      if (!userData.uid) {
+        throw new Error("Données utilisateur incomplètes");
+      }
+
       setUser(userData);
-      return userData; // Retournez les données
+      return userData;
     } catch (error) {
-      console.error("Error refreshing user:", error);
+      console.error("Erreur refreshUser:", error);
       resetUser();
       return null;
     } finally {

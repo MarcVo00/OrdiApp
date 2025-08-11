@@ -1,11 +1,23 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { useAuth } from './context/AuthContext';
 import { useRouter } from 'expo-router';
+import { use, useEffect } from 'react';
 
 export default function Pending() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const router = useRouter();
   console.log("Pending user:", user);
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const updatedUser = await refreshUser();
+      if (updatedUser?.valide) {
+        router.replace('/');
+      }
+    }, 5000); // Vérification toutes les 5 secondes
+
+    return () => clearInterval(interval);
+  }, []);
   if (!user) {
     logout();
     return null;

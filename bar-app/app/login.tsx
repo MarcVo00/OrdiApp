@@ -7,7 +7,7 @@ import { useAuth } from './context/AuthContext';
 
 export default function Login() {
   const router = useRouter();
-  const { refreshUser } = useAuth();
+  const { refreshUser, resetUser } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,25 +16,26 @@ export default function Login() {
   const handleLogin = async () => {
     setLoading(true);
     try {
-      // 1. Authentification Firebase
-      await signInWithEmailAndPassword(auth, email, password);
+      // 1. Connexion Firebase
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
-      // 2. Récupération des données utilisateur
-      const userData = await refreshUser();
+      // 2. Attendre explicitement la mise à jour
+      const userData = await refreshUser(userCredential.user);
       
-      if (!userData) {
-        throw new Error("Aucune donnée utilisateur trouvée");
+      // 3. Vérification renforcée
+      if (!userData || !userData.uid) {
+        throw new Error("Données utilisateur non reçues");
       }
 
-      // 3. Redirection en fonction du statut
-      if (!userData.valide) {
+      // 4. Redirection basée sur l'état réel
+      if (userData.valide === false) {
         router.replace('/pending');
       } else {
-        // Le ProtectedRoute gérera la redirection finale
         router.replace('/');
       }
-    } catch (error: any) {
-      // ... (gestion des erreurs inchangée)
+    } catch (error) {
+      Alert.alert("Erreur", "Échec de la connexion");
+      resetUser();
     } finally {
       setLoading(false);
     }
