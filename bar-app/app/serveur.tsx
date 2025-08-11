@@ -1,192 +1,82 @@
-import { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  Pressable,
-  Alert,
-} from 'react-native';
-import {
-  collection,
-  onSnapshot,
-  query,
-  orderBy,
-  updateDoc,
-  deleteDoc,
-  doc,
-  DocumentData,
-} from 'firebase/firestore';
-import { db } from '../firebase';
+import { useState } from 'react';
+import { View, Text, TextInput, Pressable, StyleSheet, Alert, KeyboardAvoidingView, Platform, FlatList } from 'react-native';
+import { useRouter } from 'expo-router';
 import ProtectedRoute from './components/protectedRoute';
 import NavBar from './components/NavBar';
 
+// Page Serveur : saisie du numéro de table, puis redirection vers /commande?table=XX
+// Accès: serveur + admin
 
-
-
-type Commande = {
-  id: string;
-  table: string;
-  produits: { name: string; price: number }[];
-  statut: string;
-  createdAt?: any;
-};
-
-const STATUTS = ['en_attente', 'en_preparation', 'pret'];
-
-
-
+const QUICK_TABLES = Array.from({ length: 20 }, (_, i) => String(i + 1)); // 1..20 (modifiable)
 
 export default function Serveur() {
+  const router = useRouter();
+  const [tableNumber, setTableNumber] = useState('');
 
-  const [commandes, setCommandes] = useState<Commande[]>([]);
-  const [filtre, setFiltre] = useState<'toutes' | 'en_attente' | 'en_preparation' | 'pret'>('toutes');
-
-  useEffect(() => {
-    const q = query(collection(db, 'commandes'), orderBy('createdAt', 'desc'));
-    const unsub = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as DocumentData),
-      })) as Commande[];
-      setCommandes(data);
-    });
-
-    return () => unsub();
-  }, []);
-
-  const commandesFiltrées =
-    filtre === 'toutes' ? commandes : commandes.filter((c) => c.statut === filtre);
-
-  const changerStatut = async (commande: Commande) => {
-    const index = STATUTS.indexOf(commande.statut);
-    if (index < STATUTS.length - 1) {
-      const nouveau = STATUTS[index + 1];
-      await updateDoc(doc(db, 'commandes', commande.id), { statut: nouveau });
+  const submit = () => {
+    const t = parseInt(tableNumber, 10);
+    if (!Number.isInteger(t) || t <= 0) {
+      Alert.alert('Numéro invalide', 'Merci de saisir un numéro de table valide.');
+      return;
     }
+    // Bypass token côté staff : /commande l'accepte pour les rôles internes
+    router.replace(`/commande?table=${t}`);
   };
 
-  const supprimerCommande = (id: string) => {
-    Alert.alert(
-      'Supprimer la commande ?',
-      'Cette action est irréversible.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteDoc(doc(db, 'commandes', id));
-          },
-        },
-      ]
-    );
+  const pick = (t: string) => {
+    setTableNumber(t);
+    router.replace(`/commande?table=${t}`);
   };
 
   return (
     <ProtectedRoute allowedRoles={['serveur', 'admin']}>
-    <View style={styles.container}>
-      <Text style={styles.title}>Interface Serveur</Text>
-      <View style={styles.filtres}>
-        {['toutes', 'en_attente', 'en_preparation', 'pret'].map((statut) => (
-          <Pressable
-            key={statut}
-            onPress={() => setFiltre(statut as any)}
-            style={[
-              styles.filtre,
-              filtre === statut && styles.filtreActif,
-            ]}
-          >
-            <Text style={filtre === statut ? styles.filtreTexteActif : styles.filtreTexte}>
-              {statut.replace('_', ' ')}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <View style={styles.container}>
+          <Text style={styles.title}>Prendre une commande</Text>
 
-      <FlatList
-        data={commandesFiltrées}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.table}>Table {item.table}</Text>
-            <Text style={styles.statut}>Statut : {item.statut}</Text>
-            {item.produits.map((p, i) => (
-              <Text key={i}>• {p.name} ({p.price}€)</Text>
-            ))}
-            {item.createdAt?.seconds && (
-              <Text style={styles.date}>
-                Le {new Date(item.createdAt.seconds * 1000).toLocaleString()}
-              </Text>
-            )}
-            <View style={styles.actions}>
-              {item.statut !== 'pret' && (
-                <Pressable
-                  style={styles.button}
-                  onPress={() => changerStatut(item)}
-                >
-                  <Text style={styles.buttonText}>➡️ Avancer</Text>
-                </Pressable>
-              )}
-              <Pressable
-                style={[styles.button, styles.danger]}
-                onPress={() => supprimerCommande(item.id)}
-              >
-                <Text style={styles.buttonText}>🗑 Supprimer</Text>
+          <Text style={styles.label}>Numéro de table</Text>
+          <TextInput
+            placeholder="ex: 12"
+            value={tableNumber}
+            onChangeText={setTableNumber}
+            keyboardType="numeric"
+            inputMode="numeric"
+            style={styles.input}
+            returnKeyType="go"
+            onSubmitEditing={submit}
+          />
+
+          <Pressable onPress={submit} style={styles.goBtn}>
+            <Text style={styles.goBtnText}>Aller à la commande</Text>
+          </Pressable>
+
+          <Text style={[styles.label, { marginTop: 20 }]}>Sélection rapide</Text>
+          <FlatList
+            data={QUICK_TABLES}
+            keyExtractor={(k) => k}
+            numColumns={5}
+            columnWrapperStyle={{ gap: 8 }}
+            contentContainerStyle={{ gap: 8 }}
+            renderItem={({ item }) => (
+              <Pressable onPress={() => pick(item)} style={styles.quickBtn}>
+                <Text style={styles.quickBtnText}>{item}</Text>
               </Pressable>
-            </View>
-          </View>
-        )}
-      />
-    </View>
-    <NavBar />
+            )}
+          />
+        </View>
+      </KeyboardAvoidingView>
+      <NavBar />
     </ProtectedRoute>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, backgroundColor: '#fff', flex: 1 },
+  container: { flex: 1, backgroundColor: '#fff', padding: 16 },
   title: { fontSize: 24, fontWeight: 'bold', marginBottom: 12 },
-  filtres: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
-    flexWrap: 'wrap',
-  },
-  filtre: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 8,
-    borderRadius: 6,
-  },
-  filtreActif: {
-    backgroundColor: '#000',
-  },
-  filtreTexte: {
-    color: '#000',
-  },
-  filtreTexteActif: {
-    color: '#fff',
-  },
-  card: {
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#eee',
-    marginBottom: 12,
-    backgroundColor: '#f9f9f9',
-  },
-  table: { fontWeight: 'bold', fontSize: 16 },
-  statut: { fontStyle: 'italic', color: '#555', marginBottom: 4 },
-  date: { fontSize: 12, color: '#999', marginTop: 4 },
-  actions: { flexDirection: 'row', gap: 12, marginTop: 12 },
-  button: {
-    backgroundColor: '#000',
-    padding: 8,
-    borderRadius: 6,
-  },
-  danger: {
-    backgroundColor: '#d32f2f',
-  },
-  buttonText: { color: '#fff', fontWeight: 'bold' },
+  label: { fontWeight: '600', marginBottom: 6 },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12 },
+  goBtn: { backgroundColor: '#111', paddingVertical: 12, borderRadius: 10, alignItems: 'center', marginTop: 12 },
+  goBtnText: { color: '#fff', fontWeight: '700' },
+  quickBtn: { flex: 1, backgroundColor: '#111', paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
+  quickBtnText: { color: '#fff', fontWeight: '700' },
 });
