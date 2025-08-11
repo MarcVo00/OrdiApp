@@ -2,11 +2,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, Alert, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { collection, onSnapshot, updateDoc, doc, deleteDoc } from 'firebase/firestore';
-import { db } from '../firebase';
 import { useAuth } from './context/AuthContext';
 import { useRouter } from 'expo-router';
 import ProtectedRoute from './components/protectedRoute';
 import NavBar from './components/NavBar';
+import { db } from '../firebase'; // Assurez-vous que le chemin est correct
 
 interface Utilisateur {
   id: string;
@@ -68,21 +68,26 @@ export default function Admin() {
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert('Confirmer la suppression', 'Voulez-vous vraiment supprimer cet utilisateur ?', [
-      { text: 'Annuler', style: 'cancel' },
-      {
-        text: 'Supprimer',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteDoc(doc(db, 'utilisateurs', id));
-            Alert.alert('Succès', 'Utilisateur supprimé');
-          } catch (e) {
-            Alert.alert('Erreur', "Échec de la suppression");
-          }
+    Alert.alert(
+      'Confirmer la suppression',
+      'Voulez-vous vraiment supprimer cet utilisateur de la base de données ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteDoc(doc(db, 'utilisateurs', id));
+              Alert.alert('Succès', 'Utilisateur supprimé de la base de données');
+            } catch (error) {
+              console.error('Erreur suppression Firestore:', error);
+              Alert.alert('Erreur', 'Échec de la suppression dans Firestore');
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   if (loading || !user || user.role !== 'admin') {
