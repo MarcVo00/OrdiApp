@@ -1,10 +1,10 @@
-import { View, Text, StyleSheet } from 'react-native';
-/*import { useAuth } from './context/AuthContext';
+/*import { View, Text, StyleSheet } from 'react-native';
+import { useAuth } from './context/AuthContext';
 import { useRouter } from 'expo-router';
 import { use, useEffect } from 'react';
 
 export default function Pending() {
-  //const { user, logout, refreshUser } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const router = useRouter();
   console.log("Pending user:", user);
 

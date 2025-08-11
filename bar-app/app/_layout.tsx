@@ -1,18 +1,11 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+// app/_layout.tsx
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-import {Slot} from 'expo-router';
-import { CartProvider } from './context/Cartcontext';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { useFonts } from 'expo-font';
-import { MaterialIcons } from '@expo/vector-icons';
+import { AuthProvider } from './context/AuthContext';
 
-
-export default function Layout() {
+export default function RootLayout() {
   return (
-    <CartProvider>
-      <Slot />
-    </CartProvider>
+    <AuthProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </AuthProvider>
   );
 }
