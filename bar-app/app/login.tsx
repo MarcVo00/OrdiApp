@@ -10,66 +10,41 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import { useAuth } from './context/AuthContext';
+import { getDoc, doc } from 'firebase/firestore';
 
 export default function Login() {
   const router = useRouter();
-  const { refreshUser, initialized } = useAuth();
+  const { setUser } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
-      return;
-    }
+  setLoading(true);
+  try {
+    const response = await signInWithEmailAndPassword(auth, email, password);
+    const firebaseUser = response.user;
+    const userDoc = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
+    const role = userDoc.exists() ? (userDoc.data().role as 'admin' | 'serveur' | 'cuisine') : null;
 
-    setLoading(true);
-    try {
-      // 1. Authentification Firebase
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      
-      // 2. Attendre que l'AuthContext soit initialisé
-      if (!initialized) {
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-
-      // 3. Rafraîchir les données utilisateur
-      const userData = await refreshUser();
-      
-      // 4. Vérification et redirection
-      if (!userData) {
-        throw new Error("Aucune donnée utilisateur trouvée");
-      }
-
-      if (userData.valide === false) {
-        router.replace('/pending');
-      } else {
-        router.replace('/');
-      }
-    } catch (error: any) {
-      let message = "Échec de la connexion";
-      switch (error.code) {
-        case 'auth/invalid-email':
-          message = "Email invalide";
-          break;
-        case 'auth/user-not-found':
-          message = "Utilisateur non trouvé";
-          break;
-        case 'auth/wrong-password':
-          message = "Mot de passe incorrect";
-          break;
-        default:
-          message = error.message || message;
-      }
-      Alert.alert('Erreur', message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setUser({
+      uid: firebaseUser.uid,
+      email: firebaseUser.email || '',
+      role: role,
+    });
+    
+    // Redirection simple vers la racine
+    router.replace('/');
+    
+  } catch (error: any) {
+    Alert.alert('Erreur de connexion', error.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <View style={styles.container}>

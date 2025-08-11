@@ -1,142 +1,75 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
+// context/AuthContext.tsx
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { auth, db } from '../../firebase';
-import { User as FirebaseUser, onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { useRouter } from 'expo-router';
+import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
 
-type UserRole = 'admin' | 'serveur' | 'cuisine' | null;
-
-type AppUser = {
+// Type pour notre utilisateur
+export type AppUser = {
   uid: string;
   email: string;
-  role: UserRole;
-  valide: boolean;
+  role: 'admin' | 'serveur' | 'cuisine' | null;
 } | null;
 
+// Type pour le contexte
 type AuthContextType = {
   user: AppUser;
+  setUser: (user: AppUser) => void;
   loading: boolean;
-  logout: () => Promise<void>;
-  refreshUser: (firebaseUser?: FirebaseUser | null) => Promise<AppUser>;
-  initialized: boolean;
 };
 
+// Création du contexte avec des valeurs par défaut
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  setUser: () => {},
   loading: true,
-  logout: async () => {},
-  refreshUser: async () => null,
-  initialized: false,
 });
 
+// Provider
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser>(null);
   const [loading, setLoading] = useState(true);
-  const [initialized, setInitialized] = useState(false);
-  const router = useRouter();
-  const isMounted = useRef(true);
-
-  const refreshUser = async (firebaseUser?: FirebaseUser | null) => {
-    if (!isMounted.current) return null;
-
-    try {
-      setLoading(true);
-      const currentUser = firebaseUser || auth.currentUser;
-      
-      if (!currentUser) {
-        setUser(null);
-        return null;
-      }
-
-      const userDoc = await getDoc(doc(db, 'utilisateurs', currentUser.uid));
-      
-      if (!userDoc.exists()) {
-        setUser(null);
-        return null;
-      }
-
-      const userData = {
-        uid: currentUser.uid,
-        email: currentUser.email || '',
-        role: userDoc.data().role as UserRole,
-        valide: userDoc.data().valide as boolean,
-      };
-
-      if (isMounted.current) {
-        setUser(userData);
-      }
-      return userData;
-    } catch (error) {
-      console.error("Error refreshing user:", error);
-      if (isMounted.current) {
-        setUser(null);
-      }
-      return null;
-    } finally {
-      if (isMounted.current) {
-        setLoading(false);
-      }
-    }
-  };
-
-  const logout = async () => {
-    try {
-      await signOut(auth);
-      if (isMounted.current) {
-        setUser(null);
-      }
-      router.replace('/login');
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
-  };
 
   useEffect(() => {
-    isMounted.current = true;
-    let unsubscribe: () => void;
-
-    const initializeAuth = async () => {
-      try {
-        unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-          if (!isMounted.current) return;
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        try {
+          // Récupérer les infos supplémentaires de Firestore
+          const userDoc = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
           
-          await refreshUser(firebaseUser);
-          if (isMounted.current) {
-            setInitialized(true);
-          }
-        });
-      } catch (error) {
-        console.error("Auth initialization error:", error);
-        if (isMounted.current) {
-          setInitialized(true);
+          setUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            role: userDoc.exists() ? (userDoc.data().role as 'admin' | 'serveur' | 'cuisine') : null
+          });
+        } catch (error) {
+          console.error("Erreur lors de la récupération des données utilisateur:", error);
+          setUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            role: null
+          });
         }
+      } else {
+        setUser(null);
       }
-    };
+      setLoading(false);
+    });
 
-    initializeAuth();
-
-    return () => {
-      isMounted.current = false;
-      if (unsubscribe) unsubscribe();
-    };
+    return unsubscribe;
   }, []);
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      loading, 
-      logout, 
-      refreshUser,
-      initialized
-    }}>
+    <AuthContext.Provider value={{ user, setUser, loading }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
+// Hook personnalisé
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
