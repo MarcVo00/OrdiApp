@@ -5,6 +5,7 @@ import { collection, onSnapshot, updateDoc, doc, deleteDoc } from 'firebase/fire
 import { db } from '../firebase';
 import { useAuth } from './context/AuthContext';
 import { useRouter } from 'expo-router';
+import ProtectedRoute from './protectedRoute';
 
 interface Utilisateur {
   id: string;
@@ -92,6 +93,7 @@ export default function Admin() {
   }
 
   return (
+    <ProtectedRoute allowedRoles={['admin']}>
     <View style={styles.container}>
       <Text style={styles.title}>Gestion des utilisateurs</Text>
 
@@ -144,6 +146,7 @@ export default function Admin() {
         )}
       />
     </View>
+  </ProtectedRoute>
   );
 }
 

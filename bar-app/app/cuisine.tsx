@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 //import ProtectedRoute from './protectedRoute';
 import { collection, onSnapshot, updateDoc, doc, addDoc } from 'firebase/firestore';
 import { db } from '../firebase'; // Ensure this imports the db from your firebase config
+import ProtectedRoute from './protectedRoute';
+
 type Commande = {
   id: string;
   table: string;
@@ -43,6 +45,7 @@ export default function Cuisine() {
 
 
   return (
+    <ProtectedRoute allowedRoles={['cuisine', 'admin', 'serveur']}>
     <View style={styles.container}>
       <Text style={styles.title}>Interface Cuisine</Text>
 
@@ -72,6 +75,7 @@ export default function Cuisine() {
         </View>
       ))}
     </View>
+  </ProtectedRoute>
   );
 }
 

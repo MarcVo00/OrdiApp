@@ -9,13 +9,18 @@ export default function Index() {
   const { user, loading } = useAuth();
 
   useEffect(() => {
-    if (loading) return;
-    if (!user) return router.replace('/login');
+    if (loading) return; // on attend l’état Firebase + Firestore
 
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+
+    // user existe, on route selon le rôle
     if (user.role === 'admin') router.replace('/admin');
     else if (user.role === 'serveur') router.replace('/serveur');
     else if (user.role === 'cuisine') router.replace('/cuisine');
-    else router.replace('/login');
+    else router.replace('/login'); // sécurité si rôle manquant
   }, [user, loading]);
 
   return (

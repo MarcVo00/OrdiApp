@@ -18,6 +18,7 @@ import {
   DocumentData,
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import ProtectedRoute from './protectedRoute';
 
 
 
@@ -82,6 +83,7 @@ export default function Serveur() {
   };
 
   return (
+    <ProtectedRoute allowedRoles={['serveur', 'admin']}>
     <View style={styles.container}>
       <Text style={styles.title}>Interface Serveur</Text>
       <View style={styles.filtres}>
@@ -136,6 +138,7 @@ export default function Serveur() {
         )}
       />
     </View>
+    </ProtectedRoute>
   );
 }
 
