@@ -1,78 +1,105 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { signInWithEmailAndPassword, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+// app/context/AuthContext.tsx
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, User as FirebaseUser } from 'firebase/auth';
+import { auth, db } from '../../firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../../firebase'; // Adjust import paths to your firebase config
 
-type UserInfo = {
+export type Role = 'admin' | 'serveur' | 'cuisine';
+
+export type AppUser = {
   uid: string;
   email: string;
-  name: string;
-  role: string;
+  nom?: string;
+  prenom?: string;
+  role?: Role | null; // null tant que non défini
+  valide?: boolean;    // validation admin requise
 };
 
-type AuthContextType = {
-  user: UserInfo | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+interface AuthContextValue {
+  user: AppUser | null;
+  loading: boolean; // charge l’état Firebase OU le profil Firestore
+  login: (email: string, password: string) => Promise<AppUser>;
   logout: () => Promise<void>;
-};
+}
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within <AuthProvider>');
+  return ctx;
 };
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<UserInfo | null>(null);
+async function fetchUserDoc(firebaseUser: FirebaseUser): Promise<AppUser | null> {
+  const ref = doc(db, 'utilisateurs', firebaseUser.uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+  const data = snap.data() as Partial<AppUser>;
+  return {
+    uid: firebaseUser.uid,
+    email: firebaseUser.email ?? '',
+    nom: (data as any)?.nom,
+    prenom: (data as any)?.prenom,
+    role: (data as any)?.role ?? null,
+    valide: (data as any)?.valide ?? false,
+  };
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUserInfo = async (firebaseUser: FirebaseUser) => {
-    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-    if (userDoc.exists()) {
-      const data = userDoc.data();
-      setUser({
-        uid: firebaseUser.uid,
-        email: firebaseUser.email || '',
-        name: data.name || '',
-        role: data.role || '',
-      });
-    } else {
-      setUser(null);
-    }
-  };
-
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        await fetchUserInfo(firebaseUser);
-      } else {
-        setUser(null);
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      try {
+        if (!fbUser) {
+          setUser(null);
+          return;
+        }
+        const profile = await fetchUserDoc(fbUser);
+        setUser(profile);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
-    const { user: firebaseUser } = await signInWithEmailAndPassword(auth, email, password);
-    await fetchUserInfo(firebaseUser);
-    setLoading(false);
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const profile = await fetchUserDoc(cred.user);
+      setUser(profile);
+      if (!profile) {
+        // Pas de document Firestore → déconnexion pour éviter état incohérent
+        await signOut(auth);
+        throw new Error("Votre compte est incomplet côté serveur. Contactez un administrateur.");
+      }
+      if (!profile.valide) {
+        await signOut(auth);
+        throw new Error("Votre compte n'a pas encore été validé par un administrateur.");
+      }
+      if (!profile.role) {
+        await signOut(auth);
+        throw new Error("Aucun rôle n'est attribué à votre compte.");
+      }
+      return profile;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const logout = async () => {
     setLoading(true);
-    await auth.signOut();
-    setUser(null);
-    setLoading(false);
+    try {
+      await signOut(auth);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
+  const value = useMemo(() => ({ user, loading, login, logout }), [user, loading]);
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}

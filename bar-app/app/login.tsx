@@ -1,101 +1,66 @@
-// login.tsx
-import { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+// app/login.tsx
+import { useState } from 'react';
+import { View, Text, TextInput, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import {auth, db} from '../firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { getDoc, doc } from 'firebase/firestore';
-
-interface UserContextType {
-  uid: string;
-  email: string;
-  role?: 'admin' | 'serveur' | 'cuisine' | null;
-}
-
-const userContext: UserContextType = {
-  uid: '',
-  email: '',
-  role: undefined,
-};
+import { useAuth } from './context/AuthContext';
 
 export default function Login() {
   const router = useRouter();
+  const { login, loading } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const authFirebase = auth;
-
-  const handleLogin = async () => {
-    setLoading(true);
+  const onSubmit = async () => {
+    if (!email || !password) {
+      Alert.alert('Erreur', 'Email et mot de passe requis.');
+      return;
+    }
+    setSubmitting(true);
     try {
-      const response = await signInWithEmailAndPassword(authFirebase, email, password);
-      setLoading(false);
-      
-      const user = response.user;
-      console.log('User logged in:', userContext);
-      const userDoc = await getDoc(doc(db, 'utilisateurs', user.uid));
-      const userData = userDoc.data();
-      userContext.uid = user.uid;
-      userContext.email = user.email || '';
-      userContext.role = userData?.role || null;
-      console.log('User document:', userDoc.data());
-      console.log('User role:', userDoc.data()?.role);
-      if (userDoc.exists()) {
-        if (userDoc.data()?.role === 'admin') {
-          router.replace('/admin');
-        } else if (userDoc.data()?.role === 'serveur') {
-          router.replace('/serveur');
-        } else if (userDoc.data()?.role === 'cuisine') {
-          router.replace('/cuisine');
-        }
-      }
-    } catch (error: any) {
-      console.error('Login error:', error);
-      Alert.alert('Erreur de connexion', error.message);
-      setLoading(false);
+      const profile = await login(email.trim(), password);
+      // Redirection selon le rôle
+      if (profile.role === 'admin') router.replace('/admin');
+      else if (profile.role === 'serveur') router.replace('/serveur');
+      else if (profile.role === 'cuisine') router.replace('/cuisine');
+      else router.replace('/');
+    } catch (e: any) {
+      Alert.alert('Connexion impossible', e?.message ?? 'Erreur inconnue');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Connexion</Text>
+    <View style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 12 }}>
+      <Text style={{ fontSize: 28, fontWeight: '800', marginBottom: 8 }}>Connexion</Text>
+
       <TextInput
         placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        style={styles.input}
         autoCapitalize="none"
         keyboardType="email-address"
+        value={email}
+        onChangeText={setEmail}
+        style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12 }}
       />
       <TextInput
         placeholder="Mot de passe"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
-        style={styles.input}
+        style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12 }}
       />
-      {loading ? (
-        <ActivityIndicator size="large" color="#0000ff" />
-      ) : null}
-      <Button title="Se connecter" onPress={handleLogin} />
-      <Button title="Créer un compte" onPress={() => router.push('/register')} />
+
+      {(loading || submitting) && <ActivityIndicator />}
+
+      <Pressable onPress={onSubmit} style={{ backgroundColor: '#111', padding: 12, borderRadius: 10, alignItems: 'center' }}>
+        <Text style={{ color: 'white', fontWeight: '700' }}>Se connecter</Text>
+      </Pressable>
+
+      <Pressable onPress={() => router.push('/register')} style={{ padding: 12, alignItems: 'center' }}>
+        <Text>Créer un compte</Text>
+      </Pressable>
     </View>
   );
-};
-export { userContext };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24 },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 24 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 12,
-    marginBottom: 16,
-  },
-});
+}

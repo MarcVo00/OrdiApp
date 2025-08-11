@@ -1,27 +1,27 @@
+// app/index.tsx
 import { useEffect } from 'react';
-import { useRouter } from 'expo-router';
-import { userContext } from './login';
 import { ActivityIndicator, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAuth } from './context/AuthContext';
 
 export default function Index() {
   const router = useRouter();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
-    // Vérifier périodiquement le rôle car le contexte n'est pas réactif
-    const interval = setInterval(() => {
-      if (userContext.uid === null) {
-        router.replace('/login');
-      } else if (userContext.role === 'admin') {
-        router.replace('/admin');
-      } else if (userContext.role === 'serveur') {
-        router.replace('/serveur');
-      } else if (userContext.role === 'cuisine') {
-        router.replace('/cuisine');
-      }
-    }, 500); // Vérifie toutes les 500ms
+    if (loading) return; // on attend l’état Firebase + Firestore
 
-    return () => clearInterval(interval);
-  }, []);
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+
+    // user existe, on route selon le rôle
+    if (user.role === 'admin') router.replace('/admin');
+    else if (user.role === 'serveur') router.replace('/serveur');
+    else if (user.role === 'cuisine') router.replace('/cuisine');
+    else router.replace('/login'); // sécurité si rôle manquant
+  }, [user, loading]);
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
