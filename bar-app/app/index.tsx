@@ -8,14 +8,36 @@ export default function Index() {
   const { user, loading } = useAuth();
 
   useEffect(() => {
-    // Seulement pour le premier chargement de l'app
+    // Seulement pour le premier chargement de l'app et enlever les informations de l'utilisateur
+    // Si l'utilisateur est déjà connecté, on le redirige vers la page appropriée
     if (loading) return;
-
-    if (!user) {
-      router.replace('/login');
+    
+    if (user) {
+      if (!user.valide) {
+        router.replace('/pending');
+        return;
+      }
+      
+      switch (user.role) {
+        case 'admin':
+          router.replace('/admin');
+          break;
+        case 'serveur':
+          router.replace('/serveur');
+          break;
+        case 'cuisine':
+          router.replace('/cuisine');
+          break;
+        default:
+          router.replace('/login');
+      }
+      return;
     }
-    // La navigation après login est gérée par ProtectedRoute
-  }, [loading]); // Seulement basé sur le loading
+
+    // Si l'utilisateur n'est pas connecté, on le redirige vers la page de login
+    router.replace('/login');
+  }, [user, loading, router]);
+
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
