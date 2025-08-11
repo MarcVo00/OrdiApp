@@ -49,32 +49,34 @@ export default function Admin() {
     }
   };
 
-  const handleDelete = (id: string) => {
+    const confirmDelete = async (message: string) => {
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      return window.confirm(message); // web
+    }
+    return new Promise<boolean>((resolve) => {
+      Alert.alert('Confirmer la suppression', message, [
+        { text: 'Annuler', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Supprimer', style: 'destructive', onPress: () => resolve(true) },
+      ]);
+    });
+  };
+
+  const handleDelete = async (id: string) => {
     if (currentUser?.uid === id) {
       Alert.alert('Action bloquée', "Vous ne pouvez pas supprimer votre propre compte.");
       return;
     }
 
-    Alert.alert(
-      'Confirmer la suppression',
-      "Supprimer l'utilisateur de la base de données ?",
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: async () => {
+    const ok = await confirmDelete("Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cette action est irréversible.");
+    if (!ok) return;
+
             try {
               await deleteDoc(doc(db, 'utilisateurs', id));
               Alert.alert('Succès', 'Utilisateur supprimé de la base de données.');
             } catch (e: any) {
               Alert.alert('Erreur', e?.message ?? "Échec de la suppression en base");
             }
-          },
-        },
-      ]
-    );
-  };
+          };
 
   if (loading) {
     return (
