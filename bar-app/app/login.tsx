@@ -18,10 +18,11 @@ export default function Login() {
     try {
       // 1. Connexion Firebase
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      
+      console.log("User logged in:", userCredential.user);
+
       // 2. Attendre explicitement la mise à jour
       const userData = await refreshUser(userCredential.user);
-      
+      console.log("User data after refresh:", userData);
       // 3. Vérification renforcée
       if (!userData || !userData.uid) {
         throw new Error("Données utilisateur non reçues");
