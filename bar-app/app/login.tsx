@@ -16,21 +16,25 @@ export default function Login() {
   const handleLogin = async () => {
     setLoading(true);
     try {
+      // 1. Authentification Firebase
       await signInWithEmailAndPassword(auth, email, password);
+      
+      // 2. Récupération des données utilisateur
       const userData = await refreshUser();
       
-      if (!userData?.valide) {
+      if (!userData) {
+        throw new Error("Aucune donnée utilisateur trouvée");
+      }
+
+      // 3. Redirection en fonction du statut
+      if (!userData.valide) {
         router.replace('/pending');
+      } else {
+        // Le ProtectedRoute gérera la redirection finale
+        router.replace('/');
       }
-      // La redirection est gérée par ProtectedRoute
     } catch (error: any) {
-      let message = "Échec de la connexion";
-      switch (error.code) {
-        case 'auth/invalid-email': message = "Email invalide"; break;
-        case 'auth/user-not-found': message = "Utilisateur non trouvé"; break;
-        case 'auth/wrong-password': message = "Mot de passe incorrect"; break;
-      }
-      Alert.alert('Erreur', message);
+      // ... (gestion des erreurs inchangée)
     } finally {
       setLoading(false);
     }

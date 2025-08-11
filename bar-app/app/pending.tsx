@@ -1,13 +1,33 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { useAuth } from './context/AuthContext';
+import { useRouter } from 'expo-router';
 
 export default function Pending() {
   const { user, logout } = useAuth();
+  const router = useRouter();
   console.log("Pending user:", user);
   if (!user) {
     logout();
-    return null; // Si l'utilisateur n'est pas défini, on le déconnecte
+    return null;
+  } else if (user.valide) {
+    alert("Votre compte est déjà validé. Vous serez redirigé vers la page appropriée.");
+    // Si l'utilisateur est déjà validé, on le redirige vers la page appropriée
+    switch (user.role) {
+      case 'admin':
+        router.replace('/admin');
+        break;
+      case 'serveur':
+        router.replace('/serveur');
+        break;
+      case 'cuisine':
+        router.replace('/cuisine');
+        break;
+      default:
+        router.replace('/login');
+    }
+    return null; // Si l'utilisateur est déjà validé, on ne rend rien
   }
+
 
   return (
     <View style={styles.container}>

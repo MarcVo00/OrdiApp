@@ -24,7 +24,7 @@ export default function ProtectedRoute({
 
     if (loading) return;
 
-    if (!user) {
+    if (!user || !user.uid) {
       router.replace('/login');
       return;
     }

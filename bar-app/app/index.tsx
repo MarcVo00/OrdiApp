@@ -15,6 +15,14 @@ export default function Index() {
         router.replace('/login');
       }
     }, 1000);
+    if (!loading && user) {
+      if (!user.valide) {
+        router.replace('/pending');
+      } else {
+        // Le ProtectedRoute gérera la redirection finale
+        router.replace('/');
+      }
+    }
 
     return () => clearTimeout(timeoutId);
   }, [loading, resetUser, router]);

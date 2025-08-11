@@ -41,18 +41,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = async (firebaseUser?: FirebaseUser | null) => {
     try {
+      setLoading(true); // Ajoutez cette ligne
       const currentUser = firebaseUser || auth.currentUser;
       
       if (!currentUser) {
         resetUser();
-        return;
+        return null;
       }
 
       const userDoc = await getDoc(doc(db, 'utilisateurs', currentUser.uid));
       
       if (!userDoc.exists()) {
         resetUser();
-        return;
+        return null;
       }
 
       const userData = {
@@ -63,14 +64,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       setUser(userData);
-      setLoading(false);
-      return userData;
+      return userData; // Retournez les données
     } catch (error) {
       console.error("Error refreshing user:", error);
       resetUser();
+      return null;
+    } finally {
+      setLoading(false);
     }
   };
-
   const logout = async () => {
     try {
       await signOut(auth);
