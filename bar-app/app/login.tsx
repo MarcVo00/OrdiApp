@@ -23,10 +23,14 @@ export default function Login() {
     try {
       const profile = await login(email.trim().toLowerCase(), password);
       // Redirection selon le rôle
-      if (profile.role === 'admin') router.replace('/admin');
-      else if (profile.role === 'serveur') router.replace('/serveur');
-      else if (profile.role === 'cuisine') router.replace('/cuisine');
-      else router.replace('/');
+      if (profile.valide){
+        if (profile.role === 'admin') router.replace('/admin');
+        else if (profile.role === 'serveur') router.replace('/serveur');
+        else if (profile.role === 'cuisine') router.replace('/cuisine');
+        else router.replace('/');
+      } else {
+        router.replace('/pending');
+      }
     } catch (e: any) {
       Alert.alert('Connexion impossible', e?.message ?? 'Erreur inconnue');
     } finally {
