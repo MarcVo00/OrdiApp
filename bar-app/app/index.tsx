@@ -5,20 +5,17 @@ import { useAuth } from './context/AuthContext';
 
 export default function Index() {
   const router = useRouter();
-  const { user, loading, initialCheckDone } = useAuth();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
-    if (!initialCheckDone || loading) return;
-    console.log("user", user)
-    
     // Seulement pour le premier chargement de l'app
+    if (loading) return;
+
     if (!user) {
       router.replace('/login');
-    } else {
-      // Laisser le ProtectedRoute gérer la suite
-      router.replace('/profile');
     }
-  }, []); // Supprimez les dépendances pour que cela ne s'exécute qu'une fois
+    // La navigation après login est gérée par ProtectedRoute
+  }, [loading]); // Seulement basé sur le loading
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert, Pressable } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Alert, TextInput, Pressable } from 'react-native';
 import { collection, onSnapshot, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import ProtectedRoute from './protectedRoute';
 import { useAuth } from './context/AuthContext';
-import { Picker } from '@react-native-picker/picker';
 
 type Utilisateur = {
   id: string;
@@ -19,7 +18,7 @@ export default function Admin() {
   const { user: currentUser } = useAuth();
   const [utilisateurs, setUtilisateurs] = useState<Utilisateur[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [selectedRole, setSelectedRole] = useState<'admin' | 'serveur' | 'cuisine'>('serveur');
+  const [editForm, setEditForm] = useState<Partial<Utilisateur>>({});
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'utilisateurs'), (snapshot) => {
@@ -34,18 +33,26 @@ export default function Admin() {
 
   const startEditing = (user: Utilisateur) => {
     setEditingId(user.id);
-    setSelectedRole(user.role);
+    setEditForm({
+      nom: user.nom,
+      prenom: user.prenom,
+      role: user.role,
+      valide: user.valide
+    });
   };
 
   const handleUpdate = async (id: string) => {
+    if (!editForm.role) {
+      Alert.alert('Erreur', 'Le rôle est obligatoire');
+      return;
+    }
+
     try {
-      await updateDoc(doc(db, 'utilisateurs', id), {
-        role: selectedRole
-      });
+      await updateDoc(doc(db, 'utilisateurs', id), editForm);
       setEditingId(null);
-      Alert.alert('Succès', 'Rôle mis à jour avec succès');
+      Alert.alert('Succès', 'Utilisateur mis à jour');
     } catch (error) {
-      Alert.alert('Erreur', 'Échec de la mise à jour du rôle');
+      Alert.alert('Erreur', 'Échec de la mise à jour');
     }
   };
 
@@ -83,11 +90,12 @@ export default function Admin() {
     },
     header: { flexDirection: 'row', justifyContent: 'space-between' },
     userName: { fontSize: 18, fontWeight: 'bold' },
-    picker: {
-      height: 50,
-      width: '100%',
-      marginVertical: 10,
-      backgroundColor: '#f5f5f5',
+    input: {
+      borderWidth: 1,
+      borderColor: '#ccc',
+      borderRadius: 4,
+      padding: 8,
+      marginVertical: 5,
     },
     button: {
       padding: 10,
@@ -120,38 +128,34 @@ export default function Admin() {
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <View style={styles.card}>
-              <View style={styles.header}>
-                <Text style={styles.userName}>{item.prenom} {item.nom}</Text>
-                {currentUser?.uid !== item.id && (
-                  <View style={{ flexDirection: 'row' }}>
-                    <Pressable
-                      style={[styles.button, styles.editButton, { marginRight: 5 }]}
-                      onPress={() => startEditing(item)}
-                    >
-                      <Text style={styles.buttonText}>✏️ Modifier</Text>
-                    </Pressable>
-                    <Pressable
-                      style={[styles.button, styles.deleteButton]}
-                      onPress={() => handleDelete(item.id)}
-                    >
-                      <Text style={styles.buttonText}>🗑️ Supprimer</Text>
-                    </Pressable>
-                  </View>
-                )}
-              </View>
-              <Text>{item.email}</Text>
-              
               {editingId === item.id ? (
                 <>
-                  <Picker
-                    selectedValue={selectedRole}
-                    onValueChange={(itemValue) => setSelectedRole(itemValue)}
-                    style={styles.picker}
-                  >
-                    <Picker.Item label="Administrateur" value="admin" />
-                    <Picker.Item label="Serveur" value="serveur" />
-                    <Picker.Item label="Cuisine" value="cuisine" />
-                  </Picker>
+                  <TextInput
+                    style={styles.input}
+                    value={editForm.nom}
+                    onChangeText={(text) => setEditForm({...editForm, nom: text})}
+                    placeholder="Nom"
+                  />
+                  <TextInput
+                    style={styles.input}
+                    value={editForm.prenom}
+                    onChangeText={(text) => setEditForm({...editForm, prenom: text})}
+                    placeholder="Prénom"
+                  />
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginVertical: 10 }}>
+                    {(['admin', 'serveur', 'cuisine'] as const).map((role) => (
+                      <Pressable
+                        key={role}
+                        onPress={() => setEditForm({...editForm, role})}
+                        style={[
+                          styles.button,
+                          editForm.role === role && { backgroundColor: '#333' }
+                        ]}
+                      >
+                        <Text style={styles.buttonText}>{role}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
                   <Pressable
                     style={[styles.button, styles.saveButton]}
                     onPress={() => handleUpdate(item.id)}
@@ -160,20 +164,38 @@ export default function Admin() {
                   </Pressable>
                 </>
               ) : (
-                <View style={[
-                  styles.roleBadge,
-                  item.role === 'admin' && styles.adminBadge,
-                  item.role === 'serveur' && styles.serveurBadge,
-                  item.role === 'cuisine' && styles.cuisineBadge,
-                ]}>
-                  <Text style={{ color: 'white' }}>
-                    {item.role === 'admin' && 'Administrateur'}
-                    {item.role === 'serveur' && 'Serveur'}
-                    {item.role === 'cuisine' && 'Cuisine'}
-                  </Text>
-                </View>
+                <>
+                  <View style={styles.header}>
+                    <Text style={styles.userName}>{item.prenom} {item.nom}</Text>
+                    {currentUser?.uid !== item.id && (
+                      <View style={{ flexDirection: 'row' }}>
+                        <Pressable
+                          style={[styles.button, styles.editButton, { marginRight: 5 }]}
+                          onPress={() => startEditing(item)}
+                        >
+                          <Text style={styles.buttonText}>✏️</Text>
+                        </Pressable>
+                        <Pressable
+                          style={[styles.button, styles.deleteButton]}
+                          onPress={() => handleDelete(item.id)}
+                        >
+                          <Text style={styles.buttonText}>🗑️</Text>
+                        </Pressable>
+                      </View>
+                    )}
+                  </View>
+                  <Text>{item.email}</Text>
+                  <View style={[
+                    styles.roleBadge,
+                    item.role === 'admin' && styles.adminBadge,
+                    item.role === 'serveur' && styles.serveurBadge,
+                    item.role === 'cuisine' && styles.cuisineBadge,
+                  ]}>
+                    <Text style={{ color: 'white' }}>{item.role}</Text>
+                  </View>
+                  <Text>Statut: {item.valide ? 'Validé' : 'En attente'}</Text>
+                </>
               )}
-              <Text>Statut: {item.valide ? 'Validé' : 'En attente'}</Text>
             </View>
           )}
         />

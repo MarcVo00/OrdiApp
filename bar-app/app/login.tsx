@@ -1,53 +1,45 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { auth } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../firebase';
 import { useAuth } from './context/AuthContext';
 
 export default function Login() {
   const router = useRouter();
-  const { refreshUserData, user } = useAuth();
+  const { refreshUser } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-const handleLogin = async () => {
-  setLoading(true);
-  try {
-    const response = await signInWithEmailAndPassword(auth, email, password);
-    await refreshUserData();
-    
-    // Rediriger directement vers la page appropriée
-    if (!user?.valide) {
-      router.replace('/pending');
-    } else {
-      switch(user?.role) {
-        case 'admin': router.replace('/admin'); break;
-        case 'serveur': router.replace('/serveur'); break;
-        case 'cuisine': router.replace('/cuisine'); break;
-        default: router.replace('/profile');
+  const handleLogin = async () => {
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      const userData = await refreshUser();
+      
+      if (!userData?.valide) {
+        router.replace('/pending');
       }
+      // La redirection est gérée par ProtectedRoute
+    } catch (error: any) {
+      let message = "Échec de la connexion";
+      switch (error.code) {
+        case 'auth/invalid-email': message = "Email invalide"; break;
+        case 'auth/user-not-found': message = "Utilisateur non trouvé"; break;
+        case 'auth/wrong-password': message = "Mot de passe incorrect"; break;
+      }
+      Alert.alert('Erreur', message);
+    } finally {
+      setLoading(false);
     }
-  } catch (error: any) {
-      let errorMessage = "Échec de la connexion";
-      if (error.code === 'auth/invalid-email') {
-        errorMessage = "Email invalide";
-      } else if (error.code === 'auth/user-not-found') {
-        errorMessage = "Utilisateur non trouvé";
-      } else if (error.code === 'auth/wrong-password') {
-        errorMessage = "Mot de passe incorrect";
-      }
-      Alert.alert('Erreur', errorMessage);
-      } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Connexion</Text>
+      
       <TextInput
         placeholder="Email"
         value={email}
@@ -55,52 +47,75 @@ const handleLogin = async () => {
         style={styles.input}
         autoCapitalize="none"
         keyboardType="email-address"
-        autoComplete="email"
       />
+      
       <TextInput
         placeholder="Mot de passe"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
         style={styles.input}
-        autoComplete="password"
       />
-      {loading ? (
-        <ActivityIndicator size="large" color="#0000ff" />
-      ) : (
-        <>
-          <Button title="Se connecter" onPress={handleLogin} />
-          <Button 
-            title="Créer un compte" 
-            onPress={() => router.push('/register')} 
-            color="#888"
-          />
-        </>
-      )}
+      
+      <Pressable
+        style={[styles.button, loading && styles.disabled]}
+        onPress={handleLogin}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>
+          {loading ? 'Connexion...' : 'Se connecter'}
+        </Text>
+      </Pressable>
+      
+      <Pressable
+        style={styles.secondaryButton}
+        onPress={() => router.push('/register')}
+      >
+        <Text style={styles.secondaryButtonText}>Créer un compte</Text>
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    justifyContent: 'center', 
+  container: {
+    flex: 1,
+    justifyContent: 'center',
     padding: 24,
     backgroundColor: '#fff',
   },
-  title: { 
-    fontSize: 24, 
-    fontWeight: 'bold', 
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
     marginBottom: 24,
     textAlign: 'center',
-    color: '#333',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#ddd',
     borderRadius: 6,
     padding: 12,
     marginBottom: 16,
-    backgroundColor: '#fff',
+  },
+  button: {
+    backgroundColor: '#000',
+    padding: 14,
+    borderRadius: 6,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  disabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    padding: 14,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    color: '#666',
   },
 });
