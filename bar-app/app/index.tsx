@@ -17,13 +17,9 @@ export default function Index() {
     }
 
     // user existe, on route selon le rôle
-    if (user.valide){
-    if (user.role === 'admin') router.replace('/admin');
+    if (user.role === 'admin') router.replace('/admin'); 
     else if (user.role === 'serveur') router.replace('/serveur');
     else if (user.role === 'cuisine') router.replace('/cuisine');
-    } else if (!user.valide){
-      router.replace('/pending');
-    }
     else router.replace('/login'); // sécurité si rôle manquant
   }, [user, loading]);
 
