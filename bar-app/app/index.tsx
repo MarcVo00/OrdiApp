@@ -2,58 +2,58 @@ import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from './context/AuthContext';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
 
 export default function Index() {
   const router = useRouter();
-  const { user, setUser } = useAuth();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
-    const checkUserAndRedirect = async () => {
-      // Si pas d'utilisateur, rediriger vers login
-      if (!user) {
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.log("Timeout reached - redirecting to login");
         router.replace('/login');
+      }
+    }, 1000);
+    if (!loading && user) {
+      if (!user.valide) {
+        router.replace('/pending');
+      } else {
+        // Le ProtectedRoute gérera la redirection finale
+        router.replace('/');
+      }
+    }
+
+    return () => clearTimeout(timeoutId);
+  }, [loading, router]);
+    // Seulement pour le premier chargement de l'app et enlever les informations de l'utilisateur
+    // Si l'utilisateur est déjà connecté, on le redirige vers la page appropriée
+    if (loading) return;
+    
+    if (user) {
+      if (!user.valide) {
+        router.replace('/pending');
         return;
       }
-
-      // Si utilisateur mais sans rôle, vérifier dans Firestore
-      if (user && user.uid && !user.role) {
-        try {
-          const docSnap = await getDoc(doc(db, 'utilisateurs', user.uid));
-          if (docSnap.exists()) {
-            const userData = docSnap.data();
-            const role = userData.role as 'admin' | 'serveur' | 'cuisine' | null;
-            
-            // Mettre à jour le contexte avec le rôle
-            setUser({
-              ...user,
-              role
-            });
-
-            // Rediriger selon le rôle
-            if (role === 'admin') router.replace('/admin');
-            else if (role === 'serveur') router.replace('/serveur');
-            else if (role === 'cuisine') router.replace('/cuisine');
-            else router.replace('/login'); // Rôle non reconnu
-          }
-        } catch (error) {
-          console.error("Erreur de vérification du rôle:", error);
+      
+      switch (user.role) {
+        case 'admin':
+          router.replace('/admin');
+          break;
+        case 'serveur':
+          router.replace('/serveur');
+          break;
+        case 'cuisine':
+          router.replace('/cuisine');
+          break;
+        default:
           router.replace('/login');
-        }
-      } else if (user?.role) {
-        // Rediriger si le rôle est déjà connu
-        switch (user.role) {
-          case 'admin': router.replace('/admin'); break;
-          case 'serveur': router.replace('/serveur'); break;
-          case 'cuisine': router.replace('/cuisine'); break;
-          default: router.replace('/login');
-        }
       }
-    };
+      return;
+    }
 
-    checkUserAndRedirect();
-  }, [user, setUser, router]);
+    // Si l'utilisateur n'est pas connecté, on le redirige vers la page de login
+    router.replace('/login');
+
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
