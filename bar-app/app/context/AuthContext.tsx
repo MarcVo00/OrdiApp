@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           // Récupérer les infos supplémentaires de Firestore
           const userDoc = await getDoc(doc(db, 'utilisateurs', firebaseUser.uid));
+          console.log("Utilisateur récupéré:", userDoc.data());
           
           setUser({
             uid: firebaseUser.uid,
