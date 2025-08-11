@@ -5,7 +5,8 @@ import { collection, onSnapshot, updateDoc, doc, deleteDoc } from 'firebase/fire
 import { db } from '../firebase';
 import { useAuth } from './context/AuthContext';
 import { useRouter } from 'expo-router';
-import ProtectedRoute from './protectedRoute';
+import ProtectedRoute from './components/protectedRoute';
+import NavBar from './components/NavBar';
 
 interface Utilisateur {
   id: string;
@@ -146,6 +147,7 @@ export default function Admin() {
         )}
       />
     </View>
+    <NavBar />
   </ProtectedRoute>
   );
 }

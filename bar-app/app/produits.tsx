@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Picker } from '@react-native-picker/picker';
+import NavBar from './components/NavBar';
 
 interface Produit{
   id: string;
@@ -175,6 +176,7 @@ export default function Produits() {
           </View>
         )}
       />
+      <NavBar />
     </View>
   );
 }

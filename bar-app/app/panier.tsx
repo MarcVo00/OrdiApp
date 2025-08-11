@@ -4,6 +4,8 @@ import { useCart } from './context/Cartcontext';
 import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useLocalSearchParams } from 'expo-router';
 import { db } from '../firebase'; // Ensure this imports the db from your firebase config
+import ProtectedRoute from './components/protectedRoute';
+import NavBar from './components/NavBar';
 
 
 

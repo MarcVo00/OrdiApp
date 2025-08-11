@@ -18,7 +18,8 @@ import {
   DocumentData,
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import ProtectedRoute from './protectedRoute';
+import ProtectedRoute from './components/protectedRoute';
+import NavBar from './components/NavBar';
 
 
 
@@ -138,6 +139,7 @@ export default function Serveur() {
         )}
       />
     </View>
+    <NavBar />
     </ProtectedRoute>
   );
 }

@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 //import ProtectedRoute from './protectedRoute';
 import { collection, onSnapshot, updateDoc, doc, addDoc } from 'firebase/firestore';
 import { db } from '../firebase'; // Ensure this imports the db from your firebase config
-import ProtectedRoute from './protectedRoute';
+import ProtectedRoute from './components/protectedRoute';
+import NavBar from './components/NavBar';
 
 type Commande = {
   id: string;
@@ -75,6 +76,7 @@ export default function Cuisine() {
         </View>
       ))}
     </View>
+    <NavBar />
   </ProtectedRoute>
   );
 }

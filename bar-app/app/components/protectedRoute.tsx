@@ -2,7 +2,7 @@
 import { ReactNode, useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 
 export type Role = 'admin' | 'serveur' | 'cuisine';
 
