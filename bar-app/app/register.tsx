@@ -1,12 +1,14 @@
+// =============================
 // app/register.tsx
+// =============================
 import { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useRouter } from 'expo-router';
 
-export default function Register() {
+export function Register() {
   const router = useRouter();
   const [nom, setNom] = useState('');
   const [prenom, setPrenom] = useState('');
@@ -31,21 +33,26 @@ export default function Register() {
 
     setLoading(true);
     try {
-      const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const normEmail = email.trim().toLowerCase();
+      const cred = await createUserWithEmailAndPassword(auth, normEmail, password);
       await setDoc(doc(db, 'utilisateurs', cred.user.uid), {
         nom,
         prenom,
-        email: email.trim().toLowerCase(),
-        role: null,        // attribué par admin plus tard
-        valide: false,     // validation admin requise
+        email: normEmail,
+        role: null,
+        valide: false,
         createdAt: Timestamp.now(),
       });
-
-      Alert.alert('Compte créé', "Votre compte est en attente de validation par un administrateur.");
+      Alert.alert('Compte créé', 'Votre compte est en attente de validation par un administrateur.');
       router.replace('/pending');
     } catch (e: any) {
-      const msg = e?.message ?? 'Erreur inconnue';
-      Alert.alert("Impossible de créer le compte", msg);
+      let msg = e?.message ?? 'Erreur inconnue';
+      // Messages plus clairs
+      if (e?.code === 'auth/email-already-in-use') msg = 'Cet email est déjà utilisé.';
+      if (e?.code === 'auth/invalid-email') msg = 'Email invalide.';
+      if (e?.code === 'auth/weak-password') msg = 'Mot de passe trop faible (min. 6 caractères).';
+      if (e?.code === 'auth/operation-not-supported-in-this-environment') msg = "Safari/PWA: stockage indisponible. Essayez en mode non privé ou ajoutez l'app depuis le navigateur, puis réessayez.";
+      Alert.alert("Inscription impossible", msg);
     } finally {
       setLoading(false);
     }
@@ -54,19 +61,63 @@ export default function Register() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Créer un compte</Text>
-      <TextInput placeholder="Prénom" value={prenom} onChangeText={setPrenom} style={styles.input} />
-      <TextInput placeholder="Nom" value={nom} onChangeText={setNom} style={styles.input} />
-      <TextInput placeholder="Email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} style={styles.input} />
-      <TextInput placeholder="Mot de passe" secureTextEntry value={password} onChangeText={setPassword} style={styles.input} />
-      <TextInput placeholder="Confirmer le mot de passe" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} style={styles.input} />
 
-      {loading ? <ActivityIndicator /> : (
+      <TextInput
+        placeholder="Prénom"
+        value={prenom}
+        onChangeText={setPrenom}
+        style={styles.input}
+        autoCapitalize="words"
+        autoComplete="given-name"
+      />
+
+      <TextInput
+        placeholder="Nom"
+        value={nom}
+        onChangeText={setNom}
+        style={styles.input}
+        autoCapitalize="words"
+        autoComplete="family-name"
+      />
+
+      <TextInput
+        placeholder="Email"
+        value={email}
+        onChangeText={setEmail}
+        style={styles.input}
+        autoCapitalize="none"
+        keyboardType="email-address"
+        inputMode="email"
+        autoComplete="email"
+      />
+
+      <TextInput
+        placeholder="Mot de passe"
+        value={password}
+        onChangeText={setPassword}
+        style={styles.input}
+        secureTextEntry
+        autoComplete="new-password"
+      />
+
+      <TextInput
+        placeholder="Confirmer le mot de passe"
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+        style={styles.input}
+        secureTextEntry
+        autoComplete="new-password"
+      />
+
+      {loading ? (
+        <ActivityIndicator />
+      ) : (
         <Pressable onPress={onSubmit} style={styles.button}>
-          <Text style={styles.buttonText}> s&apos;inscrire</Text>
+          <Text style={styles.buttonText}>S&apos;inscrire</Text>
         </Pressable>
       )}
 
-      <Pressable onPress={() => router.replace('/login')} style={[styles.linkBtn]}> 
+      <Pressable onPress={() => router.replace('/login')} style={{ alignItems: 'center', marginTop: 8 }}>
         <Text>Déjà un compte ? Se connecter</Text>
       </Pressable>
     </View>
@@ -79,5 +130,4 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 6, padding: 12, marginBottom: 12 },
   button: { backgroundColor: '#111', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 6 },
   buttonText: { color: '#fff', fontWeight: '700' },
-  linkBtn: { alignItems: 'center', marginTop: 8 },
 });
