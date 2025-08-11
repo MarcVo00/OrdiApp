@@ -9,6 +9,7 @@ export default function Index() {
 
   useEffect(() => {
     if (!initialCheckDone || loading) return;
+    console.log("user", user)
     
     // Seulement pour le premier chargement de l'app
     if (!user) {
