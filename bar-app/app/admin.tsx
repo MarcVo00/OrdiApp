@@ -122,9 +122,6 @@ export default function Admin() {
                   <Pressable onPress={() => setEditForm({ ...editForm, role: null })} style={[styles.button, editForm.role === null && { backgroundColor: '#333' }]}>
                     <Text style={styles.buttonText}>aucun</Text>
                   </Pressable>
-                  <Pressable style={[styles.button, { backgroundColor: editForm.valide ? '#4CAF50' : '#9E9E9E' }]} onPress={() => setEditForm({ ...editForm, valide: !editForm.valide })}>
-                    <Text style={styles.buttonText}>{editForm.valide ? 'Validé' : 'En attente'}</Text>
-                  </Pressable>
                 </View>
 
                 <Pressable style={[styles.button, styles.saveButton]} onPress={() => handleUpdate(item.id)}>
