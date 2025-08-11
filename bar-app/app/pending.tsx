@@ -3,6 +3,11 @@ import { useAuth } from './context/AuthContext';
 
 export default function Pending() {
   const { user, logout } = useAuth();
+  console.log("Pending user:", user);
+  if (!user) {
+    logout();
+    return null; // Si l'utilisateur n'est pas défini, on le déconnecte
+  }
 
   return (
     <View style={styles.container}>
