@@ -87,7 +87,7 @@ export default function CommandeScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const q = query(collection(db, 'produits'), orderBy('name'));
+        const q = query(collection(db, 'produits'), orderBy('nom'));
         const snap = await getDocs(q);
         const list: Produit[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
         setProduits(list.filter((p) => p.actif !== false));
