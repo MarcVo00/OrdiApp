@@ -7,7 +7,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { db } from '../firebase';
 import {
-  runTransaction, doc, collection, addDoc, serverTimestamp, getDoc,
+  runTransaction, doc, collection, serverTimestamp,
   getDocs, orderBy, query, writeBatch
 } from 'firebase/firestore';
 import { useAuth } from './context/AuthContext';
@@ -24,18 +24,18 @@ async function openOrGetCommande(tableNum: string) {
     const tableSnap = await tx.get(tableRef);
     let openId = tableSnap.exists() ? (tableSnap.data() as any).openCommandeId : null;
 
-    // 1) S'il y a déjà une commande ouverte référencée -> on la renvoie
+    // S'il y a déjà une commande ouverte référencée -> on la renvoie
     if (openId) {
       const existingRef = doc(db, 'commandes', openId);
       const existingSnap = await tx.get(existingRef);
       if (existingSnap.exists() && existingSnap.data().finie === false) {
         return { id: existingRef.id, ...existingSnap.data() };
       }
-      // Incohérent (commande finie/supprimée) -> on recrée proprement
+      // Incohérence (commande finie/supprimée) -> on recrée proprement
       openId = null;
     }
 
-    // 2) Créer la commande **dans la transaction** et l’attacher à la table
+    // Créer la commande **dans la transaction** et l’attacher à la table
     if (!openId) {
       const newCmdRef = doc(collection(db, 'commandes')); // ID auto
       tx.set(newCmdRef, {
@@ -44,7 +44,7 @@ async function openOrGetCommande(tableNum: string) {
         createdAt: serverTimestamp(),
         source: 'client_qr',
       });
-      // crée/merge le doc table si absent
+      // crée/merge le doc table si absent + attache openCommandeId
       tx.set(tableRef, { openCommandeId: newCmdRef.id }, { merge: true });
 
       return { id: newCmdRef.id, table: String(tableNum), finie: false };
@@ -53,7 +53,6 @@ async function openOrGetCommande(tableNum: string) {
     throw new Error("Impossible d'ouvrir la commande");
   });
 }
-export { openOrGetCommande };
 
 async function closeCommande(tableNum: string, commandeId: string) {
   await runTransaction(db, async (tx) => {
@@ -85,9 +84,13 @@ export default function Commande() {
 
   const [loading, setLoading] = useState(true);
   const [produits, setProduits] = useState<Produit[]>([]);
-  const [category, setCategory] = useState<string>('Toutes');
-  const [panier, setPanier] = useState<Record<string, PanierItem>>({});
 
+  // Étape 1/2 : choix de la catégorie, puis produits
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+
+  // Panier
+  const [panier, setPanier] = useState<Record<string, PanierItem>>({});
   const total = useMemo(
     () => Object.values(panier).reduce((s, it) => s + it.price * it.qty, 0),
     [panier]
@@ -122,7 +125,6 @@ export default function Commande() {
     (async () => {
       try {
         const opened = await openOrGetCommande(tableNumber);
-        // Si staff : tagguer la source différemment (non bloquant si on laisse 'client_qr')
         setCommandeId(opened.id);
         setCommandeFinie(Boolean((opened as any).finie));
       } catch (e: any) {
@@ -150,7 +152,7 @@ export default function Commande() {
       const ex = prev[id];
       if (!ex) return prev;
       const qty = ex.qty - 1;
-      const clone = { ...prev };
+      const clone: Record<string, PanierItem> = { ...prev };
       if (qty <= 0) delete clone[id]; else clone[id] = { ...ex, qty };
       return clone;
     });
@@ -178,9 +180,6 @@ export default function Commande() {
         const ref = doc(collection(db, 'commandes', commandeId, 'lignes'));
         batch.set(ref, { produitId: i.id, name: i.name, price: i.price, qty: i.qty, addedAt: serverTimestamp() });
       });
-      // (Option) on peut aussi mettre à jour un total sur la commande
-      // const cmdRef = doc(db, 'commandes', commandeId);
-      // batch.update(cmdRef, { updatedAt: serverTimestamp() });
       await batch.commit();
       Alert.alert('Commande envoyée', `${items.length} produit(s) ajoutés`);
       clearCart();
@@ -191,7 +190,6 @@ export default function Commande() {
 
   // ---------- Clôture (staff uniquement) ----------
   const isStaff = Boolean(user?.role === 'admin' || user?.role === 'serveur');
-
   const onClose = async () => {
     if (!isStaff) return;
     try {
@@ -203,17 +201,18 @@ export default function Commande() {
     }
   };
 
-  // ---------- UI ----------
+  // ---------- Catégories ----------
   const categories = useMemo(() => {
-    const set = new Set<string>(['Toutes']);
+    const set = new Set<string>();
     produits.forEach((p) => p.category && set.add(p.category));
     return Array.from(set);
   }, [produits]);
 
-  const produitsAffiches = useMemo(
-    () => (category === 'Toutes' ? produits : produits.filter((p) => p.category === category)),
-    [produits, category]
-  );
+  const produitsDeCategorie = useMemo(() => {
+    if (!selectedCategory) return [] as Produit[];
+    const base = produits.filter((p) => p.category === selectedCategory);
+    return search ? base.filter((p) => p.name.toLowerCase().includes(search.toLowerCase())) : base;
+  }, [produits, selectedCategory, search]);
 
   if (loading) {
     return (
@@ -230,41 +229,71 @@ export default function Commande() {
         {commandeFinie ? 'Commande terminée' : 'Commande ouverte'}
       </Text>
 
-      {/* Filtres catégories */}
-      <FlatList
-        data={categories}
-        horizontal
-        keyExtractor={(k) => k}
-        contentContainerStyle={{ paddingVertical: 6 }}
-        renderItem={({ item }) => (
-          <Pressable onPress={() => setCategory(item)} style={[styles.chip, category === item && styles.chipActive]}>
-            <Text style={category === item ? styles.chipTextActive : styles.chipText}>{item}</Text>
-          </Pressable>
-        )}
-        showsHorizontalScrollIndicator={false}
-      />
+      {/* === ÉTAPE 1: CHOISIR UNE CATÉGORIE === */}
+      {!selectedCategory && (
+        <>
+          <Text style={{ fontWeight: '700', marginBottom: 8 }}>Choisis une catégorie</Text>
+          {categories.length === 0 ? (
+            <Text style={{ color: '#666' }}>Aucune catégorie disponible.</Text>
+          ) : (
+            <FlatList
+              data={categories}
+              keyExtractor={(k) => k}
+              numColumns={2}
+              columnWrapperStyle={{ gap: 10 }}
+              contentContainerStyle={{ gap: 10, paddingBottom: 12 }}
+              renderItem={({ item }) => (
+                <Pressable onPress={() => setSelectedCategory(item)} style={styles.catTile}>
+                  <Text style={styles.catTileTitle}>{item}</Text>
+                </Pressable>
+              )}
+            />
+          )}
+        </>
+      )}
 
-      {/* Liste produits */}
-      <FlatList
-        data={produitsAffiches}
-        keyExtractor={(p) => p.id}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.pName}>{item.name}</Text>
-              <Text style={styles.pPrice}>{item.price.toFixed(2)} CHF</Text>
-            </View>
-            <Pressable
-              disabled={commandeFinie}
-              onPress={() => addToCart(item)}
-              style={[styles.addBtn, commandeFinie && { opacity: 0.5 }]}
-            >
-              <Text style={styles.addBtnText}>Ajouter</Text>
+      {/* === ÉTAPE 2: LISTE DES PRODUITS DE LA CATÉGORIE === */}
+      {selectedCategory && (
+        <>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <Pressable onPress={() => setSelectedCategory(null)} style={styles.backChip}>
+              <Text style={{ color: '#111' }}>← Catégories</Text>
             </Pressable>
+            <Text style={[styles.title, { marginLeft: 8, marginBottom: 0 }]}>{selectedCategory}</Text>
           </View>
-        )}
-        contentContainerStyle={{ paddingBottom: 140 }}
-      />
+
+          {/* Recherche (facultatif) */}
+          <TextInput
+            placeholder="Rechercher un produit…"
+            value={search}
+            onChangeText={setSearch}
+            style={[styles.input, { marginBottom: 10 }]}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+
+          <FlatList
+            data={produitsDeCategorie}
+            keyExtractor={(p) => p.id}
+            renderItem={({ item }) => (
+              <View style={styles.card}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pName}>{item.name}</Text>
+                  <Text style={styles.pPrice}>{item.price.toFixed(2)} CHF</Text>
+                </View>
+                <Pressable
+                  disabled={commandeFinie}
+                  onPress={() => addToCart(item)}
+                  style={[styles.addBtn, commandeFinie && { opacity: 0.5 }]}
+                >
+                  <Text style={styles.addBtnText}>Ajouter</Text>
+                </Pressable>
+              </View>
+            )}
+            contentContainerStyle={{ paddingBottom: 140 }}
+          />
+        </>
+      )}
 
       {/* Panier */}
       <View style={styles.cartBar}>
@@ -304,7 +333,7 @@ export default function Commande() {
             </Pressable>
           </View>
 
-          {isStaff && (
+          {(user?.role === 'admin' || user?.role === 'serveur') && (
             <Pressable onPress={onClose} style={[styles.actionBtn, styles.closeBtn, { marginTop: 8 }]}>
               <Text style={styles.actionBtnText}>Terminer la commande</Text>
             </Pressable>
@@ -330,15 +359,29 @@ const styles = StyleSheet.create({
   badge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, marginBottom: 10, color: '#fff' },
   badgeOpen: { backgroundColor: '#2e7d32' },
   badgeClosed: { backgroundColor: '#9e9e9e' },
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: '#ddd', marginRight: 8 },
-  chipActive: { backgroundColor: '#111', borderColor: '#111' },
-  chipText: { color: '#111' },
-  chipTextActive: { color: '#fff' },
+
+  // Étape Catégories
+  catTile: {
+    flex: 1,
+    minHeight: 90,
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: '#fafafa',
+    justifyContent: 'center',
+  },
+  catTileTitle: { fontSize: 16, fontWeight: '800' },
+  backChip: { borderWidth: 1, borderColor: '#ddd', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 10 },
+
+  // Produits
   card: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#eee', borderRadius: 10, padding: 12, marginBottom: 10 },
   pName: { fontWeight: '700' },
   pPrice: { color: '#444', marginTop: 4 },
   addBtn: { backgroundColor: '#111', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
   addBtnText: { color: '#fff', fontWeight: '700' },
+
+  // Panier
   cartBar: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopWidth: 1, borderColor: '#eee', backgroundColor: '#fafafa', padding: 12 },
   cartTitle: { fontWeight: '700', marginBottom: 6 },
   cartEmpty: { color: '#666' },
@@ -350,4 +393,14 @@ const styles = StyleSheet.create({
   submitBtn: { backgroundColor: '#111' },
   closeBtn: { backgroundColor: '#d32f2f' },
   actionBtnText: { color: '#fff', fontWeight: '700' },
+
+  // Ajout du style input
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 10,
+    backgroundColor: '#fff',
+    fontSize: 16,
+  },
 });
