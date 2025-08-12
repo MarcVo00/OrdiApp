@@ -1,185 +1,149 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, Pressable, FlatList, StyleSheet, ActivityIndicator, Modal, Alert, Platform } from 'react-native';
+// app/commande.tsx
+import { useEffect, useMemo, useState } from 'react';
+import {
+  View, Text, TextInput, Pressable, StyleSheet,
+  ActivityIndicator, Alert, FlatList, Platform
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { collection, addDoc, serverTimestamp, query, orderBy, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import {
+  runTransaction, doc, collection, addDoc, serverTimestamp, getDoc,
+  getDocs, orderBy, query, writeBatch
+} from 'firebase/firestore';
 import { useAuth } from './context/AuthContext';
-import { BarCodeScanner } from 'expo-barcode-scanner';
 
-/**
- * ❗️Spécifications demandées
- * - Le CLIENT n'a PAS besoin de compte.
- * - Le QR code amène sur /commande?table=12&t=<token>. Le token correspond à une "session de table" côté Firestore.
- * - Cette session a une validité (expiration) et ne doit pas être réutilisable à l'infini.
- * - Le SERVEUR (connecté avec rôle) saisit un numéro de table sur une page serveur et est redirigé vers /commande?table=XX (pas besoin de token côté serveur/admin).
- *
- * 🔒 Modèle Firestore proposé (collection `table_sessions`):
- *   - id: token (string aléatoire)
- *   - table: string | number
- *   - expiresAt: Timestamp
- *   - consumed: boolean (par défaut false) OU orderCount: number
- *   - maxOrders: number (par défaut 1)
- *
- *  Règle côté UI ici:
- *   - Si l'utilisateur N'EST PAS connecté (client public):
- *       -> exiger ?t=<token> valide ET non expiré ET non consommé (si maxOrders=1)
- *       -> après envoi de commande, marquer la session "consumed: true" (ou incrémenter orderCount)
- *   - Si l'utilisateur EST connecté (serveur/admin):
- *       -> autoriser sans token (source = interne_role)
- */
+// ---------- Types ----------
+type Produit = { id: string; name: string; price: number; category?: string; actif?: boolean };
+type PanierItem = { id: string; name: string; price: number; qty: number };
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Types
-// ──────────────────────────────────────────────────────────────────────────────
+// ---------- Helpers Firestore (sans Functions) ----------
+async function openOrGetCommande(tableNum: string) {
+  const tableRef = doc(db, 'tables', tableNum);
 
-type Produit = {
-  id: string;
-  name: string;
-  price: number;
-  category?: string;
-  actif?: boolean;
-};
+  return await runTransaction(db, async (tx) => {
+    const tableSnap = await tx.get(tableRef);
+    let openId = tableSnap.exists() ? (tableSnap.data() as any).openCommandeId : null;
 
-type PanierItem = {
-  id: string;
-  name: string;
-  price: number;
-  qty: number;
-};
+    // Si une commande est déjà ouverte et pas finie, on la renvoie telle quelle
+    if (openId) {
+      const cmdRef = doc(db, 'commandes', openId);
+      const cmdSnap = await tx.get(cmdRef);
+      if (cmdSnap.exists() && cmdSnap.data().finie === false) {
+        return { id: cmdRef.id, ...cmdSnap.data() };
+      } else {
+        // Incohérence (id pointant vers commande finie/supprimée) -> on en recrée une
+        openId = null;
+      }
+    }
 
-type TableSession = {
-  table: string;
-  expiresAt: any; // Firestore Timestamp
-  consumed?: boolean;
-  maxOrders?: number; // défaut 1
-  orderCount?: number; // défaut 0
-};
+    // Créer une nouvelle commande + attacher à la table
+    if (!openId) {
+      const newCmdRef = await addDoc(collection(db, 'commandes'), {
+        table: String(tableNum),
+        finie: false,
+        createdAt: serverTimestamp(),
+        source: 'client_qr', // si staff, on replacera plus bas
+      });
+      tx.set(tableRef, { openCommandeId: newCmdRef.id }, { merge: true });
+      const created = await tx.get(newCmdRef);
+      return { id: newCmdRef.id, ...created.data() };
+    }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Page Commande
-// ──────────────────────────────────────────────────────────────────────────────
+    // fallback (ne devrait pas arriver)
+    throw new Error("Impossible d'ouvrir la commande");
+  });
+}
 
+async function closeCommande(tableNum: string, commandeId: string) {
+  await runTransaction(db, async (tx) => {
+    const tableRef = doc(db, 'tables', tableNum);
+    const cmdRef = doc(db, 'commandes', commandeId);
+
+    const cmdSnap = await tx.get(cmdRef);
+    if (!cmdSnap.exists()) throw new Error('Commande introuvable');
+    if (cmdSnap.data().finie === true) return;
+
+    tx.update(cmdRef, { finie: true, closedAt: serverTimestamp() });
+
+    const tableSnap = await tx.get(tableRef);
+    if (tableSnap.exists() && (tableSnap.data() as any).openCommandeId === commandeId) {
+      tx.update(tableRef, { openCommandeId: null });
+    }
+  });
+}
+
+// ---------- Composant principal ----------
 export default function Commande() {
   const router = useRouter();
-  const { user } = useAuth(); // null pour client public
   const params = useLocalSearchParams();
+  const { user } = useAuth(); // peut être null pour client public
 
-  // Table & Token (depuis URL ou QR)
   const [tableNumber, setTableNumber] = useState<string>('');
-  const [token, setToken] = useState<string>('');
-  const [session, setSession] = useState<TableSession | null>(null);
-  const [sessionStatus, setSessionStatus] = useState<'checking' | 'ok' | 'missing' | 'expired' | 'consumed' | 'invalid' | 'not-required'>('checking');
+  const [commandeId, setCommandeId] = useState<string>('');
+  const [commandeFinie, setCommandeFinie] = useState<boolean>(false);
 
-  // Produits
   const [loading, setLoading] = useState(true);
   const [produits, setProduits] = useState<Produit[]>([]);
   const [category, setCategory] = useState<string>('Toutes');
-
-  // Panier
   const [panier, setPanier] = useState<Record<string, PanierItem>>({});
-  const total = useMemo(() => Object.values(panier).reduce((s, it) => s + it.price * it.qty, 0), [panier]);
 
-  // Scanner QR (option natif)
-  const [scannerOpen, setScannerOpen] = useState(false);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const scanningRef = useRef(false);
+  const total = useMemo(
+    () => Object.values(panier).reduce((s, it) => s + it.price * it.qty, 0),
+    [panier]
+  );
 
-  // 1) Lire paramètres d'URL (?table=XX&t=TOKEN)
+  // 1) Lire ?table=XX
   useEffect(() => {
     const t = Array.isArray(params.table) ? params.table[0] : params.table;
-    const tok = Array.isArray(params.t) ? params.t[0] : params.t;
-    if (t && /^\d{1,4}$/.test(String(t))) setTableNumber(String(t));
-    if (tok && typeof tok === 'string') setToken(tok);
-  }, [params.table, params.t]);
+    if (t && /^\d{1,4}$/.test(String(t))) {
+      setTableNumber(String(t));
+    }
+  }, [params.table]);
 
   // 2) Charger produits
   useEffect(() => {
-    const load = async () => {
+    (async () => {
       try {
-        const col = collection(db, 'produits');
-        const q = query(col, orderBy('name'));
+        const q = query(collection(db, 'produits'), orderBy('name'));
         const snap = await getDocs(q);
         const list: Produit[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
         setProduits(list.filter((p) => p.actif !== false));
-      } catch (e) {
+      } catch {
         Alert.alert('Erreur', "Impossible de charger les produits");
+      }
+    })();
+  }, []);
+
+  // 3) Ouverture ou récupération d'une commande ouverte (transaction)
+  useEffect(() => {
+    if (!tableNumber) return;
+    setLoading(true);
+    (async () => {
+      try {
+        const opened = await openOrGetCommande(tableNumber);
+        // Si staff : tagguer la source différemment (non bloquant si on laisse 'client_qr')
+        setCommandeId(opened.id);
+        setCommandeFinie(Boolean((opened as any).finie));
+      } catch (e: any) {
+        Alert.alert('Erreur', e?.message ?? "Ouverture de la commande impossible");
       } finally {
         setLoading(false);
       }
-    };
-    load();
-  }, []);
+    })();
+  }, [tableNumber]);
 
-  // 3) Vérifier/charger la session si nécessaire
-  useEffect(() => {
-    const isStaff = !!user?.role; // admin/serveur/cuisine
-    // Si staff connecté → pas de token requis
-    if (isStaff) {
-      setSessionStatus('not-required');
-      setSession(null);
-      return;
-    }
-
-    // Client public → token obligatoire
-    if (!token) {
-      setSessionStatus('missing');
-      return;
-    }
-
-    const check = async () => {
-      try {
-        const ref = doc(db, 'table_sessions', token);
-        const snap = await getDoc(ref);
-        if (!snap.exists()) {
-          setSessionStatus('invalid');
-          return;
-        }
-        const data = snap.data() as TableSession;
-        setSession(data);
-
-        // table du token doit correspondre à l'URL (si fournie)
-        if (tableNumber && String(data.table) !== String(tableNumber)) {
-          // on force la table issue du token
-          setTableNumber(String(data.table));
-        }
-
-        const exp = data.expiresAt?.toDate?.() ?? null;
-        const now = new Date();
-        const isExpired = !exp || exp.getTime() < now.getTime();
-        const maxOrders = data.maxOrders ?? 1;
-        const count = data.orderCount ?? (data.consumed ? 1 : 0);
-        const isConsumed = count >= maxOrders;
-
-        if (isExpired) setSessionStatus('expired');
-        else if (isConsumed) setSessionStatus('consumed');
-        else setSessionStatus('ok');
-      } catch (e) {
-        setSessionStatus('invalid');
-      }
-    };
-    check();
-  }, [token, user, tableNumber]);
-
-  // Catégories à partir des produits
-  const categories = useMemo(() => {
-    const set = new Set<string>(['Toutes']);
-    produits.forEach((p) => p.category && set.add(p.category));
-    return Array.from(set);
-  }, [produits]);
-
-  const produitsAffiches = useMemo(() => {
-    return category === 'Toutes' ? produits : produits.filter((p) => p.category === category);
-  }, [produits, category]);
-
-  // Panier helpers
+  // ---------- Panier ----------
   const addToCart = (p: Produit) => {
+    if (commandeFinie) {
+      Alert.alert('Commande close', 'Cette commande est terminée.');
+      return;
+    }
     setPanier((prev) => {
       const ex = prev[p.id];
       const qty = (ex?.qty ?? 0) + 1;
       return { ...prev, [p.id]: { id: p.id, name: p.name, price: p.price, qty } };
     });
   };
-
   const removeOne = (id: string) => {
     setPanier((prev) => {
       const ex = prev[id];
@@ -190,14 +154,16 @@ export default function Commande() {
       return clone;
     });
   };
-
   const clearCart = () => setPanier({});
 
-  // 4) Soumettre la commande
+  // ---------- Envoi de la commande (écrit les lignes) ----------
   const submit = async () => {
-    const t = parseInt(tableNumber, 10);
-    if (!Number.isInteger(t) || t <= 0) {
-      Alert.alert('Table manquante', 'Choisissez un numéro de table (ou scannez le QR).');
+    if (!tableNumber || !commandeId) {
+      Alert.alert('Erreur', 'Commande non initialisée.');
+      return;
+    }
+    if (commandeFinie) {
+      Alert.alert('Commande close', 'Impossible d’ajouter: commande terminée.');
       return;
     }
     const items = Object.values(panier);
@@ -205,125 +171,49 @@ export default function Commande() {
       Alert.alert('Panier vide', 'Ajoutez au moins un produit.');
       return;
     }
-
-    // Vérifier droit: client public nécessite session ok; staff bypass
-    const isStaff = !!user?.role;
-    if (!isStaff) {
-      if (sessionStatus === 'checking') return; // attendre
-      if (sessionStatus !== 'ok') {
-        const reason =
-          sessionStatus === 'missing' ? 'Lien invalide: token manquant.' :
-          sessionStatus === 'expired' ? 'Votre lien a expiré.' :
-          sessionStatus === 'consumed' ? 'Ce lien a déjà été utilisé.' :
-          'Lien invalide.';
-        Alert.alert('Impossible de commander', reason);
-        return;
-      }
-    }
-
     try {
-      // 1) Créer la commande
-      const orderRef = await addDoc(collection(db, 'commandes'), {
-        table: String(t),
-        produits: items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
-        statut: 'en_attente',
-        createdAt: serverTimestamp(),
-        source: isStaff ? `interne_${user?.role}` : 'client_qr',
-        createdBy: user?.uid ?? null,
-        token: !isStaff ? token : null,
+      const batch = writeBatch(db);
+      items.forEach((i) => {
+        const ref = doc(collection(db, 'commandes', commandeId, 'lignes'));
+        batch.set(ref, { produitId: i.id, name: i.name, price: i.price, qty: i.qty, addedAt: serverTimestamp() });
       });
-
-      // 2) Marquer la session comme consommée (client public)
-      if (!isStaff && token) {
-        const ref = doc(db, 'table_sessions', token);
-        const snapshot = await getDoc(ref);
-        if (snapshot.exists()) {
-          const data = snapshot.data() as TableSession;
-          const maxOrders = data.maxOrders ?? 1;
-          const count = (data.orderCount ?? 0) + 1;
-          const consumed = count >= maxOrders;
-          await updateDoc(ref, { orderCount: count, consumed, lastOrderAt: serverTimestamp(), lastOrderId: orderRef.id });
-        }
-      }
-
-      Alert.alert('Commande envoyée', `Table ${t} — ${items.length} produit(s)`);
+      // (Option) on peut aussi mettre à jour un total sur la commande
+      // const cmdRef = doc(db, 'commandes', commandeId);
+      // batch.update(cmdRef, { updatedAt: serverTimestamp() });
+      await batch.commit();
+      Alert.alert('Commande envoyée', `${items.length} produit(s) ajoutés`);
       clearCart();
-
-      // Client public: on reste; Staff: optionnel rediriger vers une page de suivi
     } catch (e: any) {
       Alert.alert('Erreur', e?.message ?? "Impossible d'envoyer la commande");
     }
   };
 
-  // ─── Scanner QR (option natif) ─────────────────────────────────────────────
-  const openScanner = async () => {
-    setScannerOpen(true);
+  // ---------- Clôture (staff uniquement) ----------
+  const isStaff = Boolean(user?.role === 'admin' || user?.role === 'serveur');
+
+  const onClose = async () => {
+    if (!isStaff) return;
     try {
-      const { status } = await BarCodeScanner.requestPermissionsAsync();
-      setHasPermission(status === 'granted');
-    } catch {
-      setHasPermission(false);
+      await closeCommande(tableNumber, commandeId);
+      setCommandeFinie(true);
+      Alert.alert('Commande terminée', `La table ${tableNumber} est libérée.`);
+    } catch (e: any) {
+      Alert.alert('Erreur', e?.message ?? 'Clôture impossible');
     }
   };
 
-  const handleBarCodeScanned = ({ data }: { data: string }) => {
-    if (scanningRef.current) return; // ignore doublons
-    scanningRef.current = true;
+  // ---------- UI ----------
+  const categories = useMemo(() => {
+    const set = new Set<string>(['Toutes']);
+    produits.forEach((p) => p.category && set.add(p.category));
+    return Array.from(set);
+  }, [produits]);
 
-    let foundTable: string | null = null;
-    let foundToken: string | null = null;
+  const produitsAffiches = useMemo(
+    () => (category === 'Toutes' ? produits : produits.filter((p) => p.category === category)),
+    [produits, category]
+  );
 
-    try {
-      // URL attendue: .../commande?table=12&t=abcdef
-      const url = new URL(data);
-      const qpT = url.searchParams.get('table');
-      const qpTok = url.searchParams.get('t');
-      if (qpT && /^\d{1,4}$/.test(qpT)) foundTable = qpT;
-      if (qpTok) foundToken = qpTok;
-    } catch {
-      // Fallback patterns simples: "table:12;token:abc" ou juste un nombre pour la table
-      const m1 = String(data).match(/table\s*[:=]\s*(\d{1,4})/i);
-      const m2 = String(data).match(/token\s*[:=]\s*([A-Za-z0-9_-]{6,})/i);
-      const m3 = String(data).match(/^(\d{1,4})$/);
-      if (m1) foundTable = m1[1];
-      if (m2) foundToken = m2[1];
-      if (!foundTable && m3) foundTable = m3[1];
-    }
-
-    if (foundTable) setTableNumber(foundTable);
-    if (foundToken) setToken(foundToken);
-
-    setScannerOpen(false);
-    scanningRef.current = false;
-  };
-
-  // ─── États d’accès pour clients publics ───────────────────────────────────
-  const renderSessionBanner = () => {
-    const isStaff = !!user?.role;
-    if (isStaff) return null; // pas de bannière pour staff
-
-    if (sessionStatus === 'checking') return (
-      <View style={styles.bannerInfo}><Text style={styles.bannerText}>Vérification du lien…</Text></View>
-    );
-    if (sessionStatus === 'ok') return (
-      <View style={styles.bannerOk}><Text style={styles.bannerText}>Lien valide pour la table {tableNumber}</Text></View>
-    );
-    if (sessionStatus === 'missing') return (
-      <View style={styles.bannerError}><Text style={styles.bannerText}>Lien invalide (token manquant). Scannez le QR sur votre table.</Text></View>
-    );
-    if (sessionStatus === 'expired') return (
-      <View style={styles.bannerError}><Text style={styles.bannerText}>Ce lien a expiré. Demandez un nouveau QR.</Text></View>
-    );
-    if (sessionStatus === 'consumed') return (
-      <View style={styles.bannerError}><Text style={styles.bannerText}>Ce lien a déjà été utilisé.</Text></View>
-    );
-    if (sessionStatus === 'invalid') return (
-      <View style={styles.bannerError}><Text style={styles.bannerText}>Lien non reconnu. Scannez le QR officiel de la table.</Text></View>
-    );
-    return null;
-  };
-
-  // ─── Chargement global produits ───────────────────────────────────────────
   if (loading) {
     return (
       <View style={styles.center}>
@@ -334,36 +224,16 @@ export default function Commande() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Nouvelle commande</Text>
-
-      {renderSessionBanner()}
-
-      {/* Sélection de table (staff: manuel / client: prérempli depuis QR) */}
-      <View style={styles.tableRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.label}>Numéro de table</Text>
-          <TextInput
-            placeholder="ex: 12"
-            keyboardType="numeric"
-            inputMode="numeric"
-            value={tableNumber}
-            onChangeText={setTableNumber}
-            style={styles.input}
-          />
-          {token && !user?.role ? (
-            <Text style={styles.hint}>Token présent</Text>
-          ) : null}
-        </View>
-        <Pressable onPress={openScanner} style={styles.scanBtn}>
-          <Text style={styles.scanBtnText}>📷 Scanner QR</Text>
-        </Pressable>
-      </View>
+      <Text style={styles.title}>Table {tableNumber}</Text>
+      <Text style={[styles.badge, commandeFinie ? styles.badgeClosed : styles.badgeOpen]}>
+        {commandeFinie ? 'Commande terminée' : 'Commande ouverte'}
+      </Text>
 
       {/* Filtres catégories */}
       <FlatList
-        horizontal
         data={categories}
-        keyExtractor={(c) => c}
+        horizontal
+        keyExtractor={(k) => k}
         contentContainerStyle={{ paddingVertical: 6 }}
         renderItem={({ item }) => (
           <Pressable onPress={() => setCategory(item)} style={[styles.chip, category === item && styles.chipActive]}>
@@ -383,12 +253,16 @@ export default function Commande() {
               <Text style={styles.pName}>{item.name}</Text>
               <Text style={styles.pPrice}>{item.price.toFixed(2)} CHF</Text>
             </View>
-            <Pressable onPress={() => addToCart(item)} style={styles.addBtn}>
+            <Pressable
+              disabled={commandeFinie}
+              onPress={() => addToCart(item)}
+              style={[styles.addBtn, commandeFinie && { opacity: 0.5 }]}
+            >
               <Text style={styles.addBtnText}>Ajouter</Text>
             </Pressable>
           </View>
         )}
-        contentContainerStyle={{ paddingBottom: 120 }}
+        contentContainerStyle={{ paddingBottom: 140 }}
       />
 
       {/* Panier */}
@@ -416,56 +290,45 @@ export default function Commande() {
             </View>
           )}
         </View>
+
         <View style={{ alignItems: 'flex-end' }}>
           <Text style={styles.total}>Total: {total.toFixed(2)} CHF</Text>
+
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-            <Pressable onPress={clearCart} style={[styles.actionBtn, styles.clearBtn]}>
+            <Pressable disabled={commandeFinie} onPress={clearCart} style={[styles.actionBtn, styles.clearBtn, commandeFinie && { opacity: 0.5 }]}>
               <Text style={styles.actionBtnText}>Vider</Text>
             </Pressable>
-            <Pressable onPress={submit} style={[styles.actionBtn, styles.submitBtn]}>
+            <Pressable disabled={commandeFinie} onPress={submit} style={[styles.actionBtn, styles.submitBtn, commandeFinie && { opacity: 0.5 }]}>
               <Text style={styles.actionBtnText}>Envoyer</Text>
             </Pressable>
           </View>
+
+          {isStaff && (
+            <Pressable onPress={onClose} style={[styles.actionBtn, styles.closeBtn, { marginTop: 8 }]}>
+              <Text style={styles.actionBtnText}>Terminer la commande</Text>
+            </Pressable>
+          )}
         </View>
       </View>
 
-      {/* Modal Scanner */}
-      <Modal visible={scannerOpen} animationType="slide" onRequestClose={() => setScannerOpen(false)}>
-        <View style={{ flex: 1 }}>
-          <View style={{ padding: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ fontSize: 18, fontWeight: '700' }}>Scanner un QR de table</Text>
-            <Pressable onPress={() => setScannerOpen(false)}><Text>Fermer</Text></Pressable>
-          </View>
-          {hasPermission === false && (
-            <View style={styles.center}><Text>Pas d&apos;accès caméra. Entrez le numéro manuellement.</Text></View>
-          )}
-          {hasPermission !== false && (
-            <BarCodeScanner onBarCodeScanned={handleBarCodeScanned} style={{ flex: 1 }} />
-          )}
-          {Platform.OS === 'web' && (
-            <Text style={{ textAlign: 'center', padding: 12, color: '#666' }}>
-              Conseil: Sur iOS/Safari (web/PWA), mieux vaut un QR qui ouvre l&apos;URL avec « ?table=12&t=TOKEN ».
-            </Text>
-          )}
-        </View>
-      </Modal>
+      {/* Conseils iOS web quand pas de scan intégré */}
+      {Platform.OS === 'web' && (
+        <Text style={{ color: '#888', fontSize: 12, textAlign: 'center', marginTop: 6 }}>
+          Astuce: ouvrez cette page via l’appareil photo (QR) pour pré-remplir la table.
+        </Text>
+      )}
     </View>
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Styles
-// ──────────────────────────────────────────────────────────────────────────────
-
+// ---------- Styles ----------
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', padding: 16 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 8 },
-  label: { fontWeight: '600', marginBottom: 4 },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10 },
-  tableRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-end', marginBottom: 12 },
-  scanBtn: { backgroundColor: '#111', paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10 },
-  scanBtnText: { color: '#fff', fontWeight: '700' },
+  title: { fontSize: 22, fontWeight: '800', marginBottom: 6 },
+  badge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, marginBottom: 10, color: '#fff' },
+  badgeOpen: { backgroundColor: '#2e7d32' },
+  badgeClosed: { backgroundColor: '#9e9e9e' },
   chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: '#ddd', marginRight: 8 },
   chipActive: { backgroundColor: '#111', borderColor: '#111' },
   chipText: { color: '#111' },
@@ -484,10 +347,6 @@ const styles = StyleSheet.create({
   actionBtn: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8 },
   clearBtn: { backgroundColor: '#9E9E9E' },
   submitBtn: { backgroundColor: '#111' },
+  closeBtn: { backgroundColor: '#d32f2f' },
   actionBtnText: { color: '#fff', fontWeight: '700' },
-  bannerInfo: { backgroundColor: '#1976D2', padding: 8, borderRadius: 8, marginBottom: 8 },
-  bannerOk: { backgroundColor: '#2E7D32', padding: 8, borderRadius: 8, marginBottom: 8 },
-  bannerError: { backgroundColor: '#C62828', padding: 8, borderRadius: 8, marginBottom: 8 },
-  bannerText: { color: '#fff' },
-  hint: { color: '#666', fontSize: 12, marginTop: 4 },
 });
