@@ -89,6 +89,7 @@ export default function CommandeScreen() {
       try {
         const q = query(collection(db, 'produits'), orderBy('nom'));
         const snap = await getDocs(q);
+        console.log('Produits chargés:', snap.docs.length);
         const list: Produit[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
         setProduits(list.filter((p) => p.actif !== false));
       } catch {
