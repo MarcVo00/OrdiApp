@@ -8,7 +8,7 @@ import {
 } from 'firebase/firestore';
 import { useAuth } from './context/AuthContext';
 
-type Produit = { id: string; name: string; price: number; category?: string; actif?: boolean };
+type Produit = { id: string; name: string; price: number; categorie?: string; actif?: boolean };
 
 async function openOrGetCommande(tableNum: string) {
   const tableRef = doc(db, 'tables', tableNum);
@@ -117,7 +117,7 @@ export default function CommandeScreen() {
 
   const categories = useMemo(() => {
     const set = new Set<string>();
-    produits.forEach((p) => p.category && set.add(p.category));
+    produits.forEach((p) => p.categorie && set.add(p.categorie));
     return Array.from(set);
   }, [produits]);
 
