@@ -24,35 +24,36 @@ async function openOrGetCommande(tableNum: string) {
     const tableSnap = await tx.get(tableRef);
     let openId = tableSnap.exists() ? (tableSnap.data() as any).openCommandeId : null;
 
-    // Si une commande est déjà ouverte et pas finie, on la renvoie telle quelle
+    // 1) S'il y a déjà une commande ouverte référencée -> on la renvoie
     if (openId) {
-      const cmdRef = doc(db, 'commandes', openId);
-      const cmdSnap = await tx.get(cmdRef);
-      if (cmdSnap.exists() && cmdSnap.data().finie === false) {
-        return { id: cmdRef.id, ...cmdSnap.data() };
-      } else {
-        // Incohérence (id pointant vers commande finie/supprimée) -> on en recrée une
-        openId = null;
+      const existingRef = doc(db, 'commandes', openId);
+      const existingSnap = await tx.get(existingRef);
+      if (existingSnap.exists() && existingSnap.data().finie === false) {
+        return { id: existingRef.id, ...existingSnap.data() };
       }
+      // Incohérent (commande finie/supprimée) -> on recrée proprement
+      openId = null;
     }
 
-    // Créer une nouvelle commande + attacher à la table
+    // 2) Créer la commande **dans la transaction** et l’attacher à la table
     if (!openId) {
-      const newCmdRef = await addDoc(collection(db, 'commandes'), {
+      const newCmdRef = doc(collection(db, 'commandes')); // ID auto
+      tx.set(newCmdRef, {
         table: String(tableNum),
         finie: false,
         createdAt: serverTimestamp(),
-        source: 'client_qr', // si staff, on replacera plus bas
+        source: 'client_qr',
       });
+      // crée/merge le doc table si absent
       tx.set(tableRef, { openCommandeId: newCmdRef.id }, { merge: true });
-      const created = await tx.get(newCmdRef);
-      return { id: newCmdRef.id, ...created.data() };
+
+      return { id: newCmdRef.id, table: String(tableNum), finie: false };
     }
 
-    // fallback (ne devrait pas arriver)
     throw new Error("Impossible d'ouvrir la commande");
   });
 }
+export { openOrGetCommande };
 
 async function closeCommande(tableNum: string, commandeId: string) {
   await runTransaction(db, async (tx) => {
