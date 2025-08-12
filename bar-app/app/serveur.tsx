@@ -11,6 +11,7 @@ import {
 import { db } from '../firebase';
 import { useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/protectedRoute';
+import NavBar from './components/NavBar';
 
 type TableDoc = {
   id: string;                // docId = numéro de table (string)
@@ -217,6 +218,7 @@ export default function Serveur() {
           </>
         )}
       </View>
+      <NavBar />
     </ProtectedRoute>
   );
 }
