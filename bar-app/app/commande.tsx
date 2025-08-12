@@ -117,7 +117,10 @@ export default function CommandeScreen() {
 
   const categories = useMemo(() => {
     const set = new Set<string>();
-    produits.forEach((p) => p.categorie && set.add(p.categorie));
+    produits.forEach((p) => {
+      console.log(p.categorie);
+      p.categorie && set.add(p.categorie);
+    });
     return Array.from(set);
   }, [produits]);
 
