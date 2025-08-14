@@ -63,6 +63,7 @@ export default function ProduitsByCategory() {
       }
     })();
   }, [categoryId]);
+  console.log('Produits chargés:', produits.length);
 
   const filtered = useMemo(
     () => (search ? produits.filter(p => p.name.toLowerCase().includes(search.toLowerCase())) : produits),
