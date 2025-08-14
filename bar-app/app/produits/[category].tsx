@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, FlatList, Pressable, TextInput, Alert } from 'r
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { db } from '../../firebase';
 import {
-  doc, getDoc, collection, query, where, getDocs, orderBy, serverTimestamp, writeBatch
+  doc, getDoc, collection, query, where, getDocs, serverTimestamp, writeBatch
 } from 'firebase/firestore';
 
 type Produit = { id: string; name: string; price: number; actif?: boolean };
@@ -22,7 +22,7 @@ export default function ProduitsByCategory() {
   const [produits, setProduits] = useState<Produit[]>([]);
   const [search, setSearch] = useState('');
 
-  // Vérifier la commande (finie ?)
+  // Vérifier si la commande est finie
   useEffect(() => {
     (async () => {
       try {
@@ -36,15 +36,14 @@ export default function ProduitsByCategory() {
     })();
   }, [cmd]);
 
-  // Charger produits de la catégorie (filtre par référence)
+  // Charger produits de la catégorie (filtre par référence, SANS orderBy)
   useEffect(() => {
     (async () => {
       try {
         const categoryRef = doc(db, 'categories', categoryId);
         const q = query(
           collection(db, 'produits'),
-          where('categorie', '==', categoryRef),
-          orderBy('nom')
+          where('categorie', '==', categoryRef)
         );
         const snap = await getDocs(q);
         const list: Produit[] = snap.docs.map(d => {
@@ -55,10 +54,12 @@ export default function ProduitsByCategory() {
             price: Number(x.prix),
             actif: x.disponible !== false,
           };
-        });
+        })
+        // tri côté client par nom
+        .sort((a, b) => a.name.localeCompare(b.name));
         setProduits(list.filter(p => p.actif !== false));
-      } catch {
-        Alert.alert('Erreur', "Impossible de charger les produits");
+      } catch (e: any) {
+        Alert.alert('Erreur', e?.message ?? "Impossible de charger les produits");
       }
     })();
   }, [categoryId]);
