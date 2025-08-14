@@ -7,14 +7,16 @@ import {
   doc, getDoc, collection, query, where, getDocs, orderBy, serverTimestamp, writeBatch
 } from 'firebase/firestore';
 
-type Produit = { id: string; name: string; price: number; category?: string; actif?: boolean };
+type Produit = { id: string; name: string; price: number; actif?: boolean };
 
 export default function ProduitsByCategory() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const category = Array.isArray(params.category) ? params.category[0] : (params.category as string);
+
+  const categoryId = Array.isArray(params.category) ? params.category[0] : (params.category as string);
   const table = Array.isArray(params.table) ? params.table[0] : (params.table as string);
   const cmd = Array.isArray(params.cmd) ? params.cmd[0] : (params.cmd as string);
+  const categoryName = Array.isArray(params.cname) ? params.cname[0] : (params.cname as string | undefined);
 
   const [commandeFinie, setCommandeFinie] = useState<boolean>(false);
   const [produits, setProduits] = useState<Produit[]>([]);
@@ -34,23 +36,32 @@ export default function ProduitsByCategory() {
     })();
   }, [cmd]);
 
-  // Charger produits de la catégorie
+  // Charger produits de la catégorie (filtre par référence)
   useEffect(() => {
     (async () => {
       try {
+        const categoryRef = doc(db, 'categories', categoryId);
         const q = query(
           collection(db, 'produits'),
-          where('category', '==', category),
-          orderBy('name')
+          where('categorie', '==', categoryRef),
+          orderBy('nom')
         );
         const snap = await getDocs(q);
-        const list: Produit[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
-        setProduits(list.filter((p) => p.actif !== false));
+        const list: Produit[] = snap.docs.map(d => {
+          const x = d.data() as any;
+          return {
+            id: d.id,
+            name: x.nom,
+            price: Number(x.prix),
+            actif: x.disponible !== false,
+          };
+        });
+        setProduits(list.filter(p => p.actif !== false));
       } catch {
         Alert.alert('Erreur', "Impossible de charger les produits");
       }
     })();
-  }, [category]);
+  }, [categoryId]);
 
   const filtered = useMemo(
     () => (search ? produits.filter(p => p.name.toLowerCase().includes(search.toLowerCase())) : produits),
@@ -72,8 +83,6 @@ export default function ProduitsByCategory() {
         qty: 1,
         addedAt: serverTimestamp(),
       });
-      // (Option) maj d'un updatedAt sur la commande
-      // batch.update(doc(db, 'commandes', cmd), { updatedAt: serverTimestamp() });
       await batch.commit();
       Alert.alert('Ajouté', `${p.name} ajouté à la commande.`);
     } catch (e: any) {
@@ -87,7 +96,7 @@ export default function ProduitsByCategory() {
         <Pressable onPress={() => router.back()} style={styles.backChip}>
           <Text style={{ color: '#111' }}>← Table {table}</Text>
         </Pressable>
-        <Text style={[styles.title, { marginLeft: 8, marginBottom: 0 }]}>{category}</Text>
+        <Text style={[styles.title, { marginLeft: 8, marginBottom: 0 }]}>{categoryName || categoryId}</Text>
       </View>
 
       <TextInput
