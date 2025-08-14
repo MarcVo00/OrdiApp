@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, Alert, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { collection, onSnapshot, updateDoc, doc, deleteDoc } from 'firebase/firestore';
-import { db } from '../firebase';
-import ProtectedRoute from './components/protectedRoute';
-import NavBar from './components/NavBar';
-import { useAuth } from './context/AuthContext';
+import { db } from '../../firebase';
+import ProtectedRoute from '../components/protectedRoute';
+import NavBar from '../components/NavBar';
+import { useAuth } from '../context/AuthContext';
 
 // Types
 export type Role = 'admin' | 'serveur' | 'cuisine' | null;
