@@ -5,6 +5,7 @@ import { db } from '../../firebase';
 import ProtectedRoute from '../components/protectedRoute';
 import NavBar from '../components/NavBar';
 import { useAuth } from '../context/AuthContext';
+import { useRouter } from 'expo-router';
 
 // Types
 export type Role = 'admin' | 'serveur' | 'cuisine' | null;
@@ -18,7 +19,9 @@ type Utilisateur = {
   valide: boolean;
 };
 
+
 export default function Admin() {
+  const router = useRouter();
   const { user: currentUser } = useAuth();
   const [utilisateurs, setUtilisateurs] = useState<Utilisateur[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -155,6 +158,20 @@ export default function Admin() {
                     <Text style={{ color: 'white' }}>{item.role ?? 'aucun'}</Text>
                   </View>
                   <Text>Statut : {item.valide ? 'Validé' : 'En attente'}</Text>
+                  <View style={styles.container}>
+                    <Text style={styles.title}>Admin</Text>
+                    <Text style={styles.subtitle}>Choisis une section :</Text>
+
+                    <Pressable style={styles.card} onPress={() => router.push('/admin/categories')}>
+                      <Text style={styles.cardTitle}>Catégories</Text>
+                      <Text style={styles.cardDesc}>Créer, renommer, supprimer des catégories.</Text>
+                    </Pressable>
+
+                    <Pressable style={styles.card} onPress={() => router.push('/admin/produits')}>
+                      <Text style={styles.cardTitle}>Produits</Text>
+                      <Text style={styles.cardDesc}>Créer, éditer, activer/désactiver, supprimer des produits.</Text>
+                    </Pressable>
+                  </View>
                 </>
               )}
             </View>
@@ -183,4 +200,7 @@ const styles = StyleSheet.create({
   serveurBadge: { backgroundColor: '#673AB7' },
   cuisineBadge: { backgroundColor: '#009688' },
   noneBadge: { backgroundColor: '#9E9E9E' },
+  subtitle: { color: '#666', marginBottom: 16 },
+  cardTitle: { fontSize: 18, fontWeight: '800' },
+  cardDesc: { color: '#666', marginTop: 4 },
 });
