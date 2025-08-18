@@ -23,7 +23,7 @@ export default function Login() {
     try {
       const profile = await login(email.trim().toLowerCase(), password);
       if (profile.valide) {
-        if (profile.role === 'admin') router.replace('/admin');
+        if (profile.role === 'admin') router.replace('/admin/settings');
         else if (profile.role === 'serveur') router.replace('/serveur');
         else if (profile.role === 'cuisine') router.replace('/cuisine');
         else router.replace('/');

@@ -168,6 +168,7 @@ export default function Admin() {
           )}
         />
       </View>
+      <View>
           <Pressable style={styles.card} onPress={() => router.push('/admin/categories')}>
             <Text style={styles.cardTitle}>Catégories</Text>
             <Text style={styles.cardDesc}>Créer, renommer, supprimer des catégories.</Text>
@@ -177,6 +178,7 @@ export default function Admin() {
             <Text style={styles.cardTitle}>Produits</Text>
             <Text style={styles.cardDesc}>Créer, éditer, activer/désactiver, supprimer des produits.</Text>
           </Pressable>
+      </View>
       <NavBar />
     </ProtectedRoute>
   );
