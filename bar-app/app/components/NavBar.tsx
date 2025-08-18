@@ -16,7 +16,7 @@ export default function NavBar() {
   return (
     <View style={styles.navbar}>
       {user.role === 'admin' && (
-        <Pressable onPress={() => goTo('admin/admin')} style={styles.item}>
+        <Pressable onPress={() => goTo('admin/settings')} style={styles.item}>
           <Text style={styles.text}>Admin</Text>
         </Pressable>
       )}
