@@ -155,12 +155,6 @@ export default function AdminProduits() {
           <View style={{ flexDirection: 'row', gap: 8, width: '100%', flexWrap: 'wrap' }}>
             <TextInput placeholder="Nom" value={nom} onChangeText={setNom} style={[styles.input, { flex: 1, minWidth: 220 }]} />
             <TextInput placeholder="Prix" value={prix} onChangeText={setPrix} keyboardType="numeric" inputMode="decimal" style={[styles.input, { width: 120 }]} />
-            <TextInput
-              placeholder="ID Catégorie (optionnel)"
-              value={categorieId || ''}
-              onChangeText={setCategorieId}
-              style={[styles.input, { minWidth: 220, flex: 1 }]}
-            />
             <Pressable onPress={() => setDisponible((d) => !d)} style={[styles.smallBtn, disponible ? styles.ok : styles.muted]}>
               <Text style={styles.smallBtnText}>{disponible ? 'Disponible' : 'Indispo'}</Text>
             </Pressable>
@@ -180,7 +174,7 @@ export default function AdminProduits() {
               renderItem={({ item }) => (
                 <Pressable onPress={() => setCategorieId(item.id)} style={[styles.chip, categorieId === item.id && styles.chipActive]}>
                   <Text style={categorieId === item.id ? styles.chipTextActive : styles.chipText}>
-                    {item.nom} ({item.id})
+                    {item.nom}
                   </Text>
                 </Pressable>
               )}
@@ -211,10 +205,10 @@ export default function AdminProduits() {
 
                 {/* Infos */}
                 {item.categorieNom && (
-                  <Text style={styles.infoText}>Catégorie : {item.categorieNom} ({item.categorieId})</Text>
+                  <Text style={styles.infoText}>Catégorie : {item.categorieNom}</Text>
                 )}
                 {!item.categorieNom && item.categorieId && (
-                  <Text style={styles.infoText}>Catégorie ID : {item.categorieId}</Text>
+                  <Text style={styles.infoText}></Text>
                 )}
                 <Text style={styles.infoText}>Prix : {item.prix.toFixed(2)} CHF</Text>
                 <Text style={styles.infoText}>Statut : {item.disponible ? 'Disponible' : 'Indisponible'}</Text>
