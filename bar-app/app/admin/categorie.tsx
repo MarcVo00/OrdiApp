@@ -4,6 +4,7 @@ import { View, Text, TextInput, Pressable, StyleSheet, FlatList, Alert } from 'r
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import ProtectedRoute from '../components/protectedRoute';
+import NavBar from '../components/NavBar';
 
 type Categorie = { id: string; nom: string };
 
@@ -110,6 +111,7 @@ export default function AdminCategories() {
           contentContainerStyle={{ paddingBottom: 20 }}
         />
       </View>
+      <NavBar />
     </ProtectedRoute>
   );
 }

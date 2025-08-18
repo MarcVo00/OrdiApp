@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import ProtectedRoute from '../components/protectedRoute';
+import NavBar from '../components/NavBar';
 
 type Categorie = { id: string; nom: string };
 type ProduitRow = { id: string; nom: string; prix: number; disponible: boolean; categorieId?: string; categorieNom?: string };
@@ -236,6 +237,7 @@ export default function AdminProduits() {
           contentContainerStyle={{ paddingBottom: 20 }}
         />
       </View>
+      <NavBar />
     </ProtectedRoute>
   );
 }
