@@ -164,7 +164,7 @@ export default function Admin() {
         />
       </View>
       <View style={styles.container}>
-          <Text style={styles.title}>Admin</Text>
+          <Text style={styles.title}>Modifications</Text>
             <Text style={styles.subtitle}>Choisis une section :</Text>
           <Pressable style={styles.card} onPress={() => router.push('/admin/categories')}>
             <Text style={styles.cardTitle}>Catégories</Text>
