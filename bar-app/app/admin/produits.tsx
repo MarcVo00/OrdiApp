@@ -131,6 +131,19 @@ export default function AdminProduits() {
     }
   };
 
+  async function editName(item: ProduitRow): Promise<void> {
+    const newName =
+      typeof window !== 'undefined'
+        ? (window.prompt('Nouveau nom du produit', item.nom) || '').trim()
+        : '';
+    if (!newName || newName === item.nom) return;
+    try {
+      await updateDoc(doc(db, 'produits', item.id), { nom: newName });
+    } catch (e: any) {
+      Alert.alert('Erreur', e?.message ?? 'Mise à jour impossible');
+    }
+  }
+
   return (
     <ProtectedRoute allowedRoles={['admin']}>
       <View style={styles.container}>
@@ -191,29 +204,41 @@ export default function AdminProduits() {
         <FlatList
           data={filtered}
           keyExtractor={(r) => r.id}
-          renderItem={({ item }) => (
-            <View style={styles.rowItem}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '700' }}>{item.nom}</Text>
-                <Text style={{ color: '#666' }}>
-                  {item.categorieNom ? `Cat: ${item.categorieNom} (${item.categorieId})` : item.categorieId ? `CatID: ${item.categorieId}` : 'Sans catégorie'}
-                </Text>
+            renderItem={({ item }) => (
+              <View style={styles.rowItem}>
+                {/* Nom du produit */}
+                <Text style={styles.productName}>{item.nom}</Text>
+
+                {/* Infos */}
+                {item.categorieNom && (
+                  <Text style={styles.infoText}>Catégorie : {item.categorieNom} ({item.categorieId})</Text>
+                )}
+                {!item.categorieNom && item.categorieId && (
+                  <Text style={styles.infoText}>Catégorie ID : {item.categorieId}</Text>
+                )}
+                <Text style={styles.infoText}>Prix : {item.prix.toFixed(2)} CHF</Text>
+                <Text style={styles.infoText}>Statut : {item.disponible ? 'Disponible' : 'Indisponible'}</Text>
+
+                {/* Boutons */}
+                <View style={styles.actionsRow}>
+                  <Pressable onPress={() => toggleDispo(item)} style={[styles.smallBtn, item.disponible ? styles.ok : styles.muted]}>
+                    <Text style={styles.smallBtnText}>{item.disponible ? 'On' : 'Off'}</Text>
+                  </Pressable>
+                  <Pressable onPress={() => editName(item)} style={styles.smallBtn}>
+                    <Text style={styles.smallBtnText}>Nom</Text>
+                  </Pressable>
+                  <Pressable onPress={() => editPrice(item)} style={styles.smallBtn}>
+                    <Text style={styles.smallBtnText}>Prix</Text>
+                  </Pressable>
+                  <Pressable onPress={() => moveCategory(item)} style={styles.smallBtn}>
+                    <Text style={styles.smallBtnText}>Catégorie</Text>
+                  </Pressable>
+                  <Pressable onPress={() => removeProduct(item)} style={[styles.smallBtn, { backgroundColor: '#d32f2f' }]}>
+                    <Text style={styles.smallBtnText}>Suppr.</Text>
+                  </Pressable>
+                </View>
               </View>
-              <Text style={{ width: 80, textAlign: 'right' }}>{item.prix.toFixed(2)}</Text>
-              <Pressable onPress={() => toggleDispo(item)} style={[styles.smallBtn, item.disponible ? styles.ok : styles.muted]}>
-                <Text style={styles.smallBtnText}>{item.disponible ? 'On' : 'Off'}</Text>
-              </Pressable>
-              <Pressable onPress={() => editPrice(item)} style={styles.smallBtn}>
-                <Text style={styles.smallBtnText}>Prix</Text>
-              </Pressable>
-              <Pressable onPress={() => moveCategory(item)} style={styles.smallBtn}>
-                <Text style={styles.smallBtnText}>Catégorie</Text>
-              </Pressable>
-              <Pressable onPress={() => removeProduct(item)} style={[styles.smallBtn, { backgroundColor: '#d32f2f' }]}>
-                <Text style={styles.smallBtnText}>Suppr.</Text>
-              </Pressable>
-            </View>
-          )}
+            )}
           contentContainerStyle={{ paddingBottom: 20 }}
         />
       </View>
@@ -241,4 +266,8 @@ const styles = StyleSheet.create({
   smallBtnText: { color: '#fff', fontWeight: '700' },
   ok: { backgroundColor: '#2e7d32' },
   muted: { backgroundColor: '#9e9e9e' },
+  productName: { fontWeight: '700', fontSize: 16, marginBottom: 4 },
+  infoText: { color: '#555', fontSize: 14, marginBottom: 2 },
+  actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+
 });
