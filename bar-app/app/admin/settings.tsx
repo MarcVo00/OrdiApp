@@ -157,18 +157,15 @@ export default function Admin() {
                   <View style={[styles.roleBadge, item.role === 'admin' && styles.adminBadge, item.role === 'serveur' && styles.serveurBadge, item.role === 'cuisine' && styles.cuisineBadge, item.role === null && styles.noneBadge]}>
                     <Text style={{ color: 'white' }}>{item.role ?? 'aucun'}</Text>
                   </View>
-                  <Text>Statut : {item.valide ? 'Validé' : 'En attente'}</Text>
-                  <View style={styles.container}>
-                    <Text style={styles.title}>Admin</Text>
-                    <Text style={styles.subtitle}>Choisis une section :</Text>
-                  </View>
                 </>
               )}
             </View>
           )}
         />
       </View>
-      <View>
+      <View style={styles.container}>
+          <Text style={styles.title}>Admin</Text>
+            <Text style={styles.subtitle}>Choisis une section :</Text>
           <Pressable style={styles.card} onPress={() => router.push('/admin/categories')}>
             <Text style={styles.cardTitle}>Catégories</Text>
             <Text style={styles.cardDesc}>Créer, renommer, supprimer des catégories.</Text>
