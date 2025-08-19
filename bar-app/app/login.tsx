@@ -6,6 +6,18 @@ import { View, Text, TextInput, Pressable, ActivityIndicator, Alert, Platform } 
 import { useRouter } from 'expo-router';
 import { useAuth } from './context/AuthContext';
 
+function mapAuthError(code?: string) {
+  switch (code) {
+    case 'auth/invalid-email': return 'Email invalide.';
+    case 'auth/user-disabled': return 'Compte désactivé.';
+    case 'auth/user-not-found': return "Aucun compte trouvé pour cet email.";
+    case 'auth/wrong-password': return 'Mot de passe incorrect.';
+    case 'auth/too-many-requests': return 'Trop de tentatives, réessayez plus tard.';
+    case 'auth/network-request-failed': return 'Problème réseau. Vérifiez votre connexion.';
+    default: return undefined;
+  }
+}
+
 export default function Login() {
   const router = useRouter();
   const { login, loading } = useAuth();
@@ -21,21 +33,43 @@ export default function Login() {
     }
     setSubmitting(true);
     try {
+      // Le hook useAuth.login doit :
+      // - appeler signInWithEmailAndPassword
+      // - récupérer le doc Firestore `utilisateurs/{uid}`
+      // - le retourner sous forme ({ role, valide, ... })
       const profile = await login(email.trim().toLowerCase(), password);
-      if (profile.valide) {
-        if (profile.role === 'admin') router.replace('/admin/settings');
-        else if (profile.role === 'serveur') router.replace('/serveur');
-        else if (profile.role === 'cuisine') router.replace('/cuisine');
-        else router.replace('/');
-      
-      } else {
-        router.replace('/pending');
-      }
-      // Redirection selon le rôle
-    }
 
-       catch (e: any) {
-      Alert.alert('Connexion impossible', e?.message ?? 'Erreur inconnue');
+      if (!profile) {
+        Alert.alert(
+          'Profil introuvable',
+          "Votre compte est authentifié mais le profil n'existe pas dans Firestore.\nContactez un administrateur."
+        );
+        return;
+      }
+
+      if (profile.valide !== true) {
+        // Non validé -> attente
+        router.replace('/pending');
+        return;
+      }
+
+      // Redirection selon le rôle
+      switch (profile.role) {
+        case 'admin':
+          router.replace('/admin/settings');
+          break;
+        case 'serveur':
+          router.replace('/serveur');
+          break;
+        case 'cuisine':
+          router.replace('/cuisine');
+          break;
+        default:
+          router.replace('/');
+      }
+    } catch (e: any) {
+      const pretty = mapAuthError(e?.code) ?? e?.message ?? 'Erreur inconnue';
+      Alert.alert('Connexion impossible', pretty);
     } finally {
       setSubmitting(false);
     }
@@ -50,7 +84,7 @@ export default function Login() {
         autoCapitalize="none"
         keyboardType="email-address"
         inputMode="email"
-        autoComplete="email" // Safari iOS (web) support via RN Web
+        autoComplete="email"
         value={email}
         onChangeText={setEmail}
         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12 }}
@@ -61,7 +95,7 @@ export default function Login() {
         value={password}
         onChangeText={setPassword}
         secureTextEntry
-        autoComplete="current-password" // Safari/PWA autofill hint
+        autoComplete="current-password"
         style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12 }}
       />
 
@@ -79,10 +113,9 @@ export default function Login() {
         <Text>Créer un compte</Text>
       </Pressable>
 
-      {/* Astuce iOS Safari / PWA: s'assurer que l'app gère la persistance dans firebase.ts via setPersistence. */}
       {Platform.OS === 'web' && (
         <Text style={{ color: '#999', fontSize: 12, textAlign: 'center', marginTop: 8 }}>
-          Astuce iOS: désactivez le mode privé pour éviter les pertes de session.
+          Astuce iOS (PWA) : évitez le mode privé et activez la persistance dans votre config Firebase Auth.
         </Text>
       )}
     </View>

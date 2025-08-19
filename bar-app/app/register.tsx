@@ -4,11 +4,23 @@
 import { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useRouter } from 'expo-router';
 
-export function Register() {
+function mapAuthError(code?: string) {
+  switch (code) {
+    case 'auth/email-already-in-use': return 'Cet email est déjà utilisé.';
+    case 'auth/invalid-email': return 'Email invalide.';
+    case 'auth/weak-password': return 'Mot de passe trop faible (min. 6 caractères).';
+    case 'auth/operation-not-supported-in-this-environment':
+      return "Safari/PWA : stockage indisponible. Essayez hors navigation privée ou installez l'app depuis le navigateur.";
+    case 'auth/network-request-failed': return 'Problème réseau. Vérifiez votre connexion.';
+    default: return undefined;
+  }
+}
+
+export default function Register() {
   const router = useRouter();
   const [nom, setNom] = useState('');
   const [prenom, setPrenom] = useState('');
@@ -35,24 +47,23 @@ export function Register() {
     try {
       const normEmail = email.trim().toLowerCase();
       const cred = await createUserWithEmailAndPassword(auth, normEmail, password);
+
+      // Crée SON document profil (autorisé par tes règles)
       await setDoc(doc(db, 'utilisateurs', cred.user.uid), {
-        nom,
-        prenom,
+        nom: nom.trim(),
+        prenom: prenom.trim(),
         email: normEmail,
-        role: null,
-        valide: false,
+        role: null,              // défini plus tard par un admin
+        valide: false,           // en attente de validation
         createdAt: Timestamp.now(),
-      });
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+
       Alert.alert('Compte créé', 'Votre compte est en attente de validation par un administrateur.');
       router.replace('/pending');
     } catch (e: any) {
-      let msg = e?.message ?? 'Erreur inconnue';
-      // Messages plus clairs
-      if (e?.code === 'auth/email-already-in-use') msg = 'Cet email est déjà utilisé.';
-      if (e?.code === 'auth/invalid-email') msg = 'Email invalide.';
-      if (e?.code === 'auth/weak-password') msg = 'Mot de passe trop faible (min. 6 caractères).';
-      if (e?.code === 'auth/operation-not-supported-in-this-environment') msg = "Safari/PWA: stockage indisponible. Essayez en mode non privé ou ajoutez l'app depuis le navigateur, puis réessayez.";
-      Alert.alert("Inscription impossible", msg);
+      const pretty = mapAuthError(e?.code) ?? e?.message ?? 'Erreur inconnue';
+      Alert.alert('Inscription impossible', pretty);
     } finally {
       setLoading(false);
     }
