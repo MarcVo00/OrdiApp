@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, FlatList, Pressable, Alert } from 'react-native
 import { collection, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import ProtectedRoute from './components/protectedRoute';
+import NavBar from './components/NavBar';
 
 type Commande = {
   id: string;
@@ -170,6 +171,7 @@ export default function CuisineScreen() {
           ListEmptyComponent={<Text style={styles.muted}>Pas de commandes ouvertes.</Text>}
         />
       </View>
+      <NavBar />
     </ProtectedRoute>
   );
 }
