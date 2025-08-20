@@ -1,129 +1,182 @@
-// app/admin/categories.tsx
+// app/produits/[category].tsx
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, FlatList, Alert } from 'react-native';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { View, Text, StyleSheet, FlatList, Pressable, TextInput, Alert, Image } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { db } from '../../firebase';
-import ProtectedRoute from '../components/protectedRoute';
-import NavBar from '../components/NavBar';
+import {
+  doc, getDoc, collection, query, where, getDocs, serverTimestamp, writeBatch
+} from 'firebase/firestore';
 
-type Categorie = { id: string; nom: string };
+type Produit = {
+  id: string;
+  name: string;
+  price: number;
+  actif?: boolean;
+  description?: string;
+  imageUrl?: string | null;
+};
 
-export default function AdminCategories() {
-  const [cats, setCats] = useState<Categorie[]>([]);
-  const [newName, setNewName] = useState('');
+export default function ProduitsByCategory() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+
+  const categoryId = Array.isArray(params.category) ? params.category[0] : (params.category as string);
+  const table = Array.isArray(params.table) ? params.table[0] : (params.table as string);
+  const cmd = Array.isArray(params.cmd) ? params.cmd[0] : (params.cmd as string);
+  const categoryName = Array.isArray(params.cname) ? params.cname[0] : (params.cname as string | undefined);
+
+  const [commandeFinie, setCommandeFinie] = useState<boolean>(false);
+  const [produits, setProduits] = useState<Produit[]>([]);
   const [search, setSearch] = useState('');
 
+  // Vérifier si la commande est finie
   useEffect(() => {
-    const q = query(collection(db, 'categories'), orderBy('nom'));
-    const unsub = onSnapshot(q, (snap) => {
-      setCats(snap.docs.map((d) => ({ id: d.id, nom: (d.data() as any).nom || d.id })));
-    });
-    return () => unsub();
-  }, []);
+    (async () => {
+      try {
+        if (!cmd) throw new Error('Commande manquante');
+        const snap = await getDoc(doc(db, 'commandes', cmd));
+        if (!snap.exists()) throw new Error('Commande introuvable');
+        setCommandeFinie(Boolean(snap.data().finie));
+      } catch (e: any) {
+        Alert.alert('Erreur', e?.message ?? "Impossible de lire la commande");
+      }
+    })();
+  }, [cmd]);
+
+  // Charger produits de la catégorie
+  useEffect(() => {
+    (async () => {
+      try {
+        const categoryRef = doc(db, 'categories', categoryId);
+        const q = query(
+          collection(db, 'produits'),
+          where('categorie', '==', categoryRef)
+        );
+        const snap = await getDocs(q);
+        const list: Produit[] = snap.docs.map(d => {
+          const x = d.data() as any;
+          return {
+            id: d.id,
+            name: x.nom,
+            price: Number(x.prix),
+            actif: x.disponible !== false,
+            description: x.description || '',
+            imageUrl: x.imageUrl ?? null,
+          };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name));
+        setProduits(list.filter(p => p.actif !== false));
+      } catch (e: any) {
+        Alert.alert('Erreur', e?.message ?? "Impossible de charger les produits");
+      }
+    })();
+  }, [categoryId]);
+  console.log('Produits chargés:', produits.length);
 
   const filtered = useMemo(
-    () => (search ? cats.filter((c) => c.nom.toLowerCase().includes(search.toLowerCase())) : cats),
-    [cats, search]
+    () => (search ? produits.filter(p =>
+      p.name.toLowerCase().includes(search.toLowerCase())
+      || (p.description ?? '').toLowerCase().includes(search.toLowerCase())
+    ) : produits),
+    [produits, search]
   );
 
-  const createCat = async () => {
-    const name = newName.trim();
-    if (!name) return Alert.alert('Nom requis', 'Entre un nom de catégorie.');
-    // id simple dérivé du nom (tu peux préférer addDoc si tu veux un id auto)
-    const id = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '');
-    try {
-      await setDoc(doc(db, 'categories', id || name), { nom: name });
-      setNewName('');
-    } catch (e: any) {
-      Alert.alert('Erreur', e?.message ?? 'Création impossible');
+  const addOne = async (p: Produit) => {
+    if (commandeFinie) {
+      Alert.alert('Commande close', 'Cette commande est terminée.');
+      return;
     }
-  };
-
-  const renameCat = async (cat: Categorie) => {
-    const next = typeof window !== 'undefined' ? (window.prompt('Nouveau nom :', cat.nom) || '') : '';
-    const nom = next.trim();
-    if (!nom || nom === cat.nom) return;
     try {
-      await updateDoc(doc(db, 'categories', cat.id), { nom });
+      const batch = writeBatch(db);
+      const ref = doc(collection(db, 'commandes', cmd, 'lignes'));
+      batch.set(ref, {
+        produitId: p.id,
+        name: p.name,
+        price: p.price,
+        qty: 1,
+        addedAt: serverTimestamp(),
+      });
+      await batch.commit();
+      Alert.alert('Ajouté', `${p.name} ajouté à la commande.`);
     } catch (e: any) {
-      Alert.alert('Erreur', e?.message ?? 'Renommage impossible');
-    }
-  };
-
-  const deleteCat = async (cat: Categorie) => {
-    try {
-      // sécurité : refuse la suppression si des produits pointent vers cette catégorie
-      const catRef = doc(db, 'categories', cat.id);
-      const snap = await getDocs(query(collection(db, 'produits'), where('categorie', '==', catRef)));
-      if (!snap.empty) {
-        Alert.alert('Impossible', `Des produits utilisent "${cat.nom}". Supprime ou déplace-les d'abord.`);
-        return;
-      }
-      const ok = typeof window !== 'undefined' && window.confirm
-        ? window.confirm(`Supprimer la catégorie "${cat.nom}" ?`)
-        : true;
-      if (!ok) return;
-      await deleteDoc(doc(db, 'categories', cat.id));
-    } catch (e: any) {
-      Alert.alert('Erreur', e?.message ?? 'Suppression impossible');
+      Alert.alert('Erreur', e?.message ?? "Impossible d'ajouter le produit");
     }
   };
 
   return (
-    <ProtectedRoute allowedRoles={['admin']}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Catégories (Admin)</Text>
-
-        <View style={styles.row}>
-          <TextInput
-            placeholder="Nouvelle catégorie"
-            value={newName}
-            onChangeText={setNewName}
-            style={[styles.input, { flex: 1 }]}
-            onSubmitEditing={createCat}
-          />
-          <Pressable onPress={createCat} style={styles.primaryBtn}>
-            <Text style={styles.btnText}>Créer</Text>
-          </Pressable>
-        </View>
-
-        <TextInput
-          placeholder="Rechercher…"
-          value={search}
-          onChangeText={setSearch}
-          style={[styles.input, { marginTop: 8 }]}
-        />
-
-        <FlatList
-          data={filtered}
-          keyExtractor={(c) => c.id}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <Text style={{ fontWeight: '700', flex: 1 }}>{item.nom}</Text>
-              <Pressable onPress={() => renameCat(item)} style={styles.smallBtn}>
-                <Text style={styles.smallBtnText}>Renommer</Text>
-              </Pressable>
-              <Pressable onPress={() => deleteCat(item)} style={[styles.smallBtn, { backgroundColor: '#d32f2f' }]}>
-                <Text style={styles.smallBtnText}>Supprimer</Text>
-              </Pressable>
-            </View>
-          )}
-          contentContainerStyle={{ paddingBottom: 20 }}
-        />
+    <View style={styles.container}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+        <Pressable onPress={() => router.back()} style={styles.backChip}>
+          <Text style={{ color: '#111' }}>← Table {table}</Text>
+        </Pressable>
+        <Text style={[styles.title, { marginLeft: 8, marginBottom: 0 }]}>{categoryName || categoryId}</Text>
       </View>
-      <NavBar />
-    </ProtectedRoute>
+
+      <TextInput
+        placeholder="Rechercher un produit…"
+        value={search}
+        onChangeText={setSearch}
+        style={[styles.input, { marginBottom: 10 }]}
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+
+      <FlatList
+        data={filtered}
+        keyExtractor={(p) => p.id}
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+            {/* Image */}
+            {item.imageUrl ? (
+              <Image source={{ uri: item.imageUrl }} style={styles.image} />
+            ) : (
+              <View style={[styles.image, { backgroundColor: '#eee', alignItems: 'center', justifyContent: 'center' }]}>
+                <Text style={{ color: '#999', fontSize: 12 }}>Aucune image</Text>
+              </View>
+            )}
+
+            {/* Texte */}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.pName}>{item.name}</Text>
+              {!!item.description && <Text style={styles.pDesc}>{item.description}</Text>}
+              <Text style={styles.pPrice}>{item.price.toFixed(2)} CHF</Text>
+            </View>
+
+            <Pressable
+              disabled={commandeFinie}
+              onPress={() => addOne(item)}
+              style={[styles.addBtn, commandeFinie && { opacity: 0.5 }]}
+            >
+              <Text style={styles.addBtnText}>Ajouter</Text>
+            </Pressable>
+          </View>
+        )}
+        ListEmptyComponent={<Text style={{ color: '#666' }}>Aucun produit.</Text>}
+        contentContainerStyle={{ paddingBottom: 24 }}
+      />
+
+      <Text style={[styles.badge, commandeFinie ? styles.badgeClosed : styles.badgeOpen]}>
+        {commandeFinie ? 'Commande terminée' : 'Commande ouverte'}
+      </Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', padding: 16 },
-  title: { fontSize: 22, fontWeight: '800', marginBottom: 12 },
-  row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  title: { fontSize: 22, fontWeight: '800', marginBottom: 6 },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12 },
-  primaryBtn: { backgroundColor: '#111', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12 },
-  btnText: { color: '#fff', fontWeight: '700' },
-  card: { flexDirection: 'row', gap: 8, alignItems: 'center', borderWidth: 1, borderColor: '#eee', borderRadius: 10, padding: 12, marginTop: 10 },
-  smallBtn: { backgroundColor: '#111', paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, alignItems: 'center' },
-  smallBtnText: { color: '#fff', fontWeight: '700' },
+  backChip: { borderWidth: 1, borderColor: '#ddd', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 10 },
+
+  card: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#eee', borderRadius: 10, padding: 12, marginBottom: 10, gap: 12, backgroundColor: '#fff' },
+  image: { width: 72, height: 72, borderRadius: 10, backgroundColor: '#fafafa' },
+  pName: { fontWeight: '700' },
+  pDesc: { color: '#666', marginTop: 4, marginRight: 8 },
+  pPrice: { color: '#444', marginTop: 6 },
+  addBtn: { backgroundColor: '#111', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  addBtnText: { color: '#fff', fontWeight: '700' },
+
+  badge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, marginTop: 10, color: '#fff' },
+  badgeOpen: { backgroundColor: '#2e7d32' },
+  badgeClosed: { backgroundColor: '#9e9e9e' },
 });

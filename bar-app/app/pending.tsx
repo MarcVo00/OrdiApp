@@ -1,6 +1,4 @@
-// =============================
 // app/pending.tsx
-// =============================
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -11,7 +9,7 @@ export default function Pending() {
     <View style={styles.container}>
       <Text style={styles.title}>⏳ En attente de validation</Text>
       <Text style={styles.text}>
-        Votre compte a bien été créé, mais il doit encore être validé par un administrateur avant d&apos;accéder à l&apos;application.
+        Votre compte a été créé et doit être validé par un administrateur.
       </Text>
 
       <Pressable onPress={() => router.replace('/login')} style={styles.button}>

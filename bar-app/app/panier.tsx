@@ -9,11 +9,11 @@ import NavBar from './components/NavBar';
 
 
 
-await addDoc(collection(db, 'commandes'), {
+/*await addDoc(collection(db, 'commandes'), {
   table: '5',
   produits: [{ name: 'Mojito', price: 7 }],
   statut: 'en_attente',
-});
+});*/
 
 export default function Panier() {
   const router = useRouter();

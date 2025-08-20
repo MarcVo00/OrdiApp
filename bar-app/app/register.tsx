@@ -1,24 +1,10 @@
-// =============================
 // app/register.tsx
-// =============================
 import { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useRouter } from 'expo-router';
-
-function mapAuthError(code?: string) {
-  switch (code) {
-    case 'auth/email-already-in-use': return 'Cet email est déjà utilisé.';
-    case 'auth/invalid-email': return 'Email invalide.';
-    case 'auth/weak-password': return 'Mot de passe trop faible (min. 6 caractères).';
-    case 'auth/operation-not-supported-in-this-environment':
-      return "Safari/PWA : stockage indisponible. Essayez hors navigation privée ou installez l'app depuis le navigateur.";
-    case 'auth/network-request-failed': return 'Problème réseau. Vérifiez votre connexion.';
-    default: return undefined;
-  }
-}
 
 export default function Register() {
   const router = useRouter();
@@ -47,23 +33,23 @@ export default function Register() {
     try {
       const normEmail = email.trim().toLowerCase();
       const cred = await createUserWithEmailAndPassword(auth, normEmail, password);
-
-      // Crée SON document profil (autorisé par tes règles)
       await setDoc(doc(db, 'utilisateurs', cred.user.uid), {
-        nom: nom.trim(),
-        prenom: prenom.trim(),
+        nom,
+        prenom,
         email: normEmail,
-        role: null,              // défini plus tard par un admin
-        valide: false,           // en attente de validation
+        role: null,
+        valide: false,
         createdAt: Timestamp.now(),
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
-
-      Alert.alert('Compte créé', 'Votre compte est en attente de validation par un administrateur.');
-      router.replace('/pending');
+      });
+      router.replace('/pending'); // nécessite app/pending.tsx (fourni ci-dessus)
     } catch (e: any) {
-      const pretty = mapAuthError(e?.code) ?? e?.message ?? 'Erreur inconnue';
-      Alert.alert('Inscription impossible', pretty);
+      let msg = e?.message ?? 'Erreur inconnue';
+      if (e?.code === 'auth/email-already-in-use') msg = 'Cet email est déjà utilisé.';
+      if (e?.code === 'auth/invalid-email') msg = 'Email invalide.';
+      if (e?.code === 'auth/weak-password') msg = 'Mot de passe trop faible (min. 6 caractères).';
+      if (e?.code === 'auth/operation-not-supported-in-this-environment')
+        msg = "Safari/PWA: stockage indisponible. Essayez hors navigation privée ou installez l'app depuis le navigateur.";
+      Alert.alert('Inscription impossible', msg);
     } finally {
       setLoading(false);
     }
@@ -73,52 +59,11 @@ export default function Register() {
     <View style={styles.container}>
       <Text style={styles.title}>Créer un compte</Text>
 
-      <TextInput
-        placeholder="Prénom"
-        value={prenom}
-        onChangeText={setPrenom}
-        style={styles.input}
-        autoCapitalize="words"
-        autoComplete="given-name"
-      />
-
-      <TextInput
-        placeholder="Nom"
-        value={nom}
-        onChangeText={setNom}
-        style={styles.input}
-        autoCapitalize="words"
-        autoComplete="family-name"
-      />
-
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        style={styles.input}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        inputMode="email"
-        autoComplete="email"
-      />
-
-      <TextInput
-        placeholder="Mot de passe"
-        value={password}
-        onChangeText={setPassword}
-        style={styles.input}
-        secureTextEntry
-        autoComplete="new-password"
-      />
-
-      <TextInput
-        placeholder="Confirmer le mot de passe"
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        style={styles.input}
-        secureTextEntry
-        autoComplete="new-password"
-      />
+      <TextInput placeholder="Prénom" value={prenom} onChangeText={setPrenom} style={styles.input} autoCapitalize="words" autoComplete="given-name" />
+      <TextInput placeholder="Nom" value={nom} onChangeText={setNom} style={styles.input} autoCapitalize="words" autoComplete="family-name" />
+      <TextInput placeholder="Email" value={email} onChangeText={setEmail} style={styles.input} autoCapitalize="none" keyboardType="email-address" inputMode="email" autoComplete="email" />
+      <TextInput placeholder="Mot de passe" value={password} onChangeText={setPassword} style={styles.input} secureTextEntry autoComplete="new-password" />
+      <TextInput placeholder="Confirmer le mot de passe" value={confirmPassword} onChangeText={setConfirmPassword} style={styles.input} secureTextEntry autoComplete="new-password" />
 
       {loading ? (
         <ActivityIndicator />

@@ -5,12 +5,7 @@ import { useRouter, usePathname } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 
 export type Role = 'admin' | 'serveur' | 'cuisine';
-
-const roleToHome: Record<Role, string> = {
-  admin: '/admin',
-  serveur: '/serveur',
-  cuisine: '/cuisine',
-};
+const roleToHome: Record<Role, string> = { admin: '/admin/settings', serveur: '/serveur', cuisine: '/cuisine' };
 
 export default function ProtectedRoute({ allowedRoles, children }: { allowedRoles?: Role[]; children: ReactNode }) {
   const router = useRouter();
@@ -20,21 +15,19 @@ export default function ProtectedRoute({ allowedRoles, children }: { allowedRole
   useEffect(() => {
     if (loading) return;
 
-    // 1) Non connecté → login
     if (!user) {
       if (pathname !== '/login') router.replace('/login');
       return;
     }
 
-    // 2) Compte non validé ou sans rôle → retour login (ou une page dédiée)
+    // 👉 compte non validé → /pending
     if (user.valide === false || !user.role) {
-      router.replace('/login');
+      if (pathname !== '/pending') router.replace('/pending');
       return;
     }
 
-    // 3) Si roles requis et rôle non autorisé → rediriger vers sa home
-    if (allowedRoles && user.role && !allowedRoles.includes(user.role)) {
-      router.replace(roleToHome[user.role]);
+    if (allowedRoles && !allowedRoles.includes(user.role as Role)) {
+      router.replace(roleToHome[user.role as Role]);
     }
   }, [user, loading, pathname]);
 
