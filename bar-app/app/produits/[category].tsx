@@ -1,13 +1,20 @@
 // app/produits/[category].tsx
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Pressable, TextInput, Alert, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { db } from '../../firebase';
 import {
   doc, getDoc, collection, query, where, getDocs, serverTimestamp, writeBatch
 } from 'firebase/firestore';
 
-type Produit = { id: string; name: string; price: number; actif?: boolean };
+type Produit = {
+  id: string;
+  name: string;
+  price: number;
+  actif?: boolean;
+  description?: string;
+  imageUrl?: string | null;
+};
 
 export default function ProduitsByCategory() {
   const router = useRouter();
@@ -36,37 +43,40 @@ export default function ProduitsByCategory() {
     })();
   }, [cmd]);
 
-  // Charger produits de la catégorie (filtre par référence, SANS orderBy)
+  // Charger produits de la catégorie (avec image + description)
   useEffect(() => {
     (async () => {
       try {
         const categoryRef = doc(db, 'categories', categoryId);
-        const q = query(
-          collection(db, 'produits'),
-          where('categorie', '==', categoryRef)
-        );
+        const q = query(collection(db, 'produits'), where('categorie', '==', categoryRef));
         const snap = await getDocs(q);
-        const list: Produit[] = snap.docs.map(d => {
-          const x = d.data() as any;
-          return {
-            id: d.id,
-            name: x.nom,
-            price: Number(x.prix),
-            actif: x.disponible !== false,
-          };
-        })
-        // tri côté client par nom
-        .sort((a, b) => a.name.localeCompare(b.name));
+        const list: Produit[] = snap.docs
+          .map(d => {
+            const x = d.data() as any;
+            return {
+              id: d.id,
+              name: x.nom,
+              price: Number(x.prix),
+              actif: x.disponible !== false,
+              description: x.description || '',
+              imageUrl: x.imageUrl ?? null,
+            };
+          })
+          .sort((a, b) => a.name.localeCompare(b.name));
         setProduits(list.filter(p => p.actif !== false));
       } catch (e: any) {
         Alert.alert('Erreur', e?.message ?? "Impossible de charger les produits");
       }
     })();
   }, [categoryId]);
-  console.log('Produits chargés:', produits.length);
 
   const filtered = useMemo(
-    () => (search ? produits.filter(p => p.name.toLowerCase().includes(search.toLowerCase())) : produits),
+    () => (search
+      ? produits.filter(p =>
+          p.name.toLowerCase().includes(search.toLowerCase()) ||
+          (p.description ?? '').toLowerCase().includes(search.toLowerCase())
+        )
+      : produits),
     [produits, search]
   );
 
@@ -83,6 +93,7 @@ export default function ProduitsByCategory() {
         name: p.name,
         price: p.price,
         qty: 1,
+        imageUrl: p.imageUrl ?? null, // 👈 on garde l’URL pour un aperçu côté ticket/historique
         addedAt: serverTimestamp(),
       });
       await batch.commit();
@@ -115,10 +126,22 @@ export default function ProduitsByCategory() {
         keyExtractor={(p) => p.id}
         renderItem={({ item }) => (
           <View style={styles.card}>
+            {/* Image du produit */}
+            {item.imageUrl ? (
+              <Image source={{ uri: item.imageUrl }} style={styles.image} />
+            ) : (
+              <View style={[styles.image, { backgroundColor: '#eee', alignItems: 'center', justifyContent: 'center' }]}>
+                <Text style={{ color: '#999', fontSize: 12, textAlign: 'center' }}>Aucune image</Text>
+              </View>
+            )}
+
+            {/* Infos produit */}
             <View style={{ flex: 1 }}>
               <Text style={styles.pName}>{item.name}</Text>
+              {!!item.description && <Text style={styles.pDesc} numberOfLines={2}>{item.description}</Text>}
               <Text style={styles.pPrice}>{item.price.toFixed(2)} CHF</Text>
             </View>
+
             <Pressable
               disabled={commandeFinie}
               onPress={() => addOne(item)}
@@ -144,11 +167,20 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '800', marginBottom: 6 },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12 },
   backChip: { borderWidth: 1, borderColor: '#ddd', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 10 },
-  card: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#eee', borderRadius: 10, padding: 12, marginBottom: 10 },
+
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1, borderColor: '#eee',
+    borderRadius: 10, padding: 12, marginBottom: 10, gap: 12, backgroundColor: '#fff'
+  },
+  image: { width: 72, height: 72, borderRadius: 10, backgroundColor: '#fafafa' },
   pName: { fontWeight: '700' },
-  pPrice: { color: '#444', marginTop: 4 },
+  pDesc: { color: '#666', marginTop: 4, marginRight: 8 },
+  pPrice: { color: '#444', marginTop: 6 },
   addBtn: { backgroundColor: '#111', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
   addBtnText: { color: '#fff', fontWeight: '700' },
+
   badge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, marginTop: 10, color: '#fff' },
   badgeOpen: { backgroundColor: '#2e7d32' },
   badgeClosed: { backgroundColor: '#9e9e9e' },
